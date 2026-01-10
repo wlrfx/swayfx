@@ -153,6 +153,7 @@ struct sway_container {
 
 	struct {
 		struct animation *animation;
+		float from_alpha;
 		int delta_x;
 		int delta_y;
 		int delta_width;
