@@ -233,6 +233,15 @@ static void configure_layer_shell_surface(struct wlr_scene_buffer *buffer,
 	);
 }
 
+static bool is_container_animated_moving(struct sway_container *con) {
+	if (con->animation_state.animation->progress == 0.0f ||
+			con->animation_state.animation->progress == 1.0f) {
+		return false;
+	}
+
+	return con->animation_state.delta_x != 0 || con->animation_state.delta_y != 0;
+}
+
 void output_configure_scene(struct sway_output *output, struct wlr_scene_node *node,
 		bool has_titlebar, struct sway_container *closest_con) {
 	if (!node->enabled) {
@@ -257,7 +266,7 @@ void output_configure_scene(struct sway_output *output, struct wlr_scene_node *n
 	}
 
 	float opacity = closest_con ? get_animated_value(closest_con->animation_state.from_alpha,
-		closest_con->alpha, *closest_con->animation_state.animation) : 1.0f;
+		closest_con->animation_state.to_alpha, *closest_con->animation_state.animation) : 1.0f;
 	int corner_radius = closest_con && container_has_corner_radius(closest_con) ?
 		closest_con->corner_radius : 0;
 
@@ -305,8 +314,9 @@ void output_configure_scene(struct sway_output *output, struct wlr_scene_node *n
 	} else if (node->type == WLR_SCENE_NODE_BLUR && closest_con) {
 		struct wlr_scene_blur *blur = wlr_scene_blur_from_node(node);
 
-		// Only enable xray blur if tiled or when xray is explicitly enabled
-		bool should_optimize_blur = !container_is_floating_or_child(closest_con) || config->blur_xray;
+		// Only enable xray blur if tiled or when xray is explicitly enabled and a move animation is not occurring
+		// (since tiled views can overlap on move animation)
+		bool should_optimize_blur = config->blur_xray || !(container_is_floating_or_child(closest_con) || is_container_animated_moving(closest_con));
 		wlr_scene_blur_set_should_only_blur_bottom_layer(blur, should_optimize_blur);
 		wlr_scene_blur_set_strength(blur, opacity);
 		wlr_scene_node_set_enabled(node, closest_con->blur_enabled);
