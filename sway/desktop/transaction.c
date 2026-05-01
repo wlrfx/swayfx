@@ -932,7 +932,9 @@ static void transaction_apply(struct sway_transaction *transaction) {
 				if (con->pending.parent && con->pending.parent->pending.workspace) {
 					con->animation_state.to_x -= con->pending.parent->pending.x;
 					con->animation_state.to_y -= con->pending.parent->pending.y;
-				} else if (con->pending.workspace) {
+				} else if (con->pending.workspace && !container_is_floating(con)) {
+					// Top-level floating containers are placed in the global floating
+					// scene layer, so they need global coordinates.
 					con->animation_state.to_x -= con->pending.workspace->x;
 					con->animation_state.to_y -= con->pending.workspace->y;
 				}
@@ -942,8 +944,13 @@ static void transaction_apply(struct sway_transaction *transaction) {
 					int lx, ly;
 					wlr_scene_node_coords(&con->scene_tree->node, &lx, &ly);
 					printf("%s current: %d\n", con->title, lx);
-					con->animation_state.from_x = con->animation_state.to_x + lx - con->pending.x;
-					con->animation_state.from_y = con->animation_state.to_y + ly - con->pending.y;
+					if (container_is_floating(con)) {
+						con->animation_state.from_x = lx;
+						con->animation_state.from_y = ly;
+					} else {
+						con->animation_state.from_x = con->animation_state.to_x + lx - con->pending.x;
+						con->animation_state.from_y = con->animation_state.to_y + ly - con->pending.y;
+					}
 					con->animation_state.from_width = get_animated_value(con->animation_state.from_width,
 						con->animation_state.to_width, con->animation_state.animation);
 					con->animation_state.from_height = get_animated_value(con->animation_state.from_height,
