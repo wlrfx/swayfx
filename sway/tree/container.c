@@ -179,8 +179,8 @@ struct sway_container *container_create(struct sway_view *view) {
 	c->animation_state.animation = init_animation(c);
 	c->animation_state.from_alpha = 0.0f;
 	c->animation_state.to_alpha = c->alpha;
-	c->animation_state.from_x = 0;
-	c->animation_state.from_y = 0;
+	c->animation_state.from_x = -1;
+	c->animation_state.from_y = -1;
 	c->animation_state.to_x = 0;
 	c->animation_state.to_y = 0;
 	c->animation_state.from_width = 0;
