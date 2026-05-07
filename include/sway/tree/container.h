@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <wlr/types/wlr_compositor.h>
 #include "list.h"
+#include "sway/animation_manager.h"
 #include "sway/tree/node.h"
 
 struct sway_view;
@@ -155,6 +156,18 @@ struct sway_container {
 	float dim;
 
 	list_t *marks; // char *
+
+	struct {
+		struct animation *animation;
+		int delta_x;
+		int delta_y;
+		int delta_width;
+		int delta_height;
+		int current_width;
+		int current_height;
+		int current_content_width; // needed for output.c
+		int current_content_height; // needed for output.c
+	} animation_state;
 
 	struct {
 		struct wl_signal destroy;
