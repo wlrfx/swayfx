@@ -598,56 +598,34 @@ static void arrange_container(struct sway_container *con,
 			border_left, border_top);
 
 		wlr_scene_node_set_enabled(&con->blur->node, con->blur_enabled);
-//<<<<<<< HEAD
 		if (con->blur_border) {
 			int y_offset = con->current.height - height;
-			sway_log(SWAY_INFO, "offset %u",
-				y_offset);
 			wlr_scene_node_set_position(&con->blur->node, 0, -y_offset);
 			wlr_scene_blur_set_size(con->blur, width, height + y_offset);
-
-
-			int corner_radius = has_corner_radius ? con->corner_radius + con->current.border_thickness : 0;
-			sway_log(SWAY_INFO, "radius %u",
-				corner_radius);
-		// if (!con->view && title_bar) {
-		// 	// Stacking/Tabbed containers don't have a border_thickness, so we
-		// 	// use the config default
-		// 	corner_radius = con->corner_radius + config->border_thickness;
-		// }
-
-			// wlr_scene_blur_set_corner_radius(con->blur, corner_radius);
-
-			// wlr_scene_blur_set_corner_radii(struct wlr_scene_blur *blur, struct fx_corner_radii);
-
-			// wlr_scene_blur_set_clipped_region(con->blur, (struct clipped_region) {
-			// 	.corners = corner_radii_all(corner_radius),
-			// 	.area = {
-			// 		.x = 0,
-			// 		.y = 0,
-			// 		.width = width,
-			// 		.height = height,
-			// 	}
-			// });
-			// wlr_scene_blur_set_corner_radius(con->blur, corner_radius);
 		} else {
 			wlr_scene_node_set_position(&con->blur->node, border_left, border_top);
 			wlr_scene_blur_set_size(con->blur, con->current.content_width,
 				con->current.content_height);
 		}
-/*=======
-		wlr_scene_node_set_position(&con->blur->node, border_left, border_top);
-		wlr_scene_blur_set_size(con->blur, content_width, content_height);
->>>>>>> swayfxorig/master*/
 	} else {
+		const bool is_tabbed_or_stacked = (con->current.layout == L_TABBED || con->current.layout == L_STACKED);
 		// make sure to disable the title bar if the parent is not managing it
 		if (title_bar) {
 			wlr_scene_node_set_enabled(&con->title_bar.tree->node, false);
+
+			if(is_tabbed_or_stacked && config->blur_enabled && config->blur_border)
+			{
+				wlr_scene_node_set_enabled(&con->blur->node, con->blur_enabled);
+				int y_offset = con->current.height - height;
+				wlr_scene_node_set_position(&con->blur->node, 0, -y_offset);
+				wlr_scene_blur_set_size(con->blur, width, height + y_offset);
+			}
 		}
 
 		wlr_scene_node_set_enabled(&con->shadow->node,
-				container_has_shadow(con) &&
-				(con->current.layout == L_TABBED || con->current.layout == L_STACKED));
+				container_has_shadow(con) && is_tabbed_or_stacked);
+
+		
 
 		arrange_children(con->current.layout, con->current.children,
 			con->current.focused_inactive_child, con->content_tree,
