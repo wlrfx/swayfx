@@ -317,7 +317,7 @@ static void arrange_children(enum sway_container_layout layout, list_t *children
 			wlr_scene_node_set_enabled(&child->scene_tree->node, true);
 			wlr_scene_node_set_position(&child->scene_tree->node, 0, title_bar_height);
 			wlr_scene_node_reparent(&child->scene_tree->node, content);
-			
+
 			int net_height = height - title_bar_height;
 			if (activated && width > 0 && net_height > 0) {
 				arrange_container(child, width, net_height, title_bar_height == 0, 0);
@@ -597,15 +597,14 @@ static void arrange_container(struct sway_container *con,
 		wlr_scene_node_set_position(&con->view->scene_tree->node,
 			border_left, border_top);
 
-		wlr_scene_node_set_enabled(&con->blur->node, con->blur_enabled);
+		wlr_scene_node_set_enabled(&con->blur->node, con->blur_enabled && con->blur_enabled);
 		if (con->blur_border) {
 			int y_offset = con->current.height - height;
 			wlr_scene_node_set_position(&con->blur->node, 0, -y_offset);
 			wlr_scene_blur_set_size(con->blur, width, height + y_offset);
 		} else {
 			wlr_scene_node_set_position(&con->blur->node, border_left, border_top);
-			wlr_scene_blur_set_size(con->blur, con->current.content_width,
-				con->current.content_height);
+			wlr_scene_blur_set_size(con->blur, content_width, content_height);
 		}
 	} else {
 		const bool is_tabbed_or_stacked = (con->current.layout == L_TABBED || con->current.layout == L_STACKED);
@@ -613,8 +612,7 @@ static void arrange_container(struct sway_container *con,
 		if (title_bar) {
 			wlr_scene_node_set_enabled(&con->title_bar.tree->node, false);
 
-			if(is_tabbed_or_stacked && config->blur_enabled && config->blur_border)
-			{
+			if(is_tabbed_or_stacked && config->blur_enabled && config->blur_border) {
 				wlr_scene_node_set_enabled(&con->blur->node, con->blur_enabled);
 				int y_offset = con->current.height - height;
 				wlr_scene_node_set_position(&con->blur->node, 0, -y_offset);
