@@ -151,7 +151,7 @@ struct sway_container {
 
 	int corner_radius;
 	bool blur_enabled;
-	bool blur_border;
+	bool blur_decorations;
 	bool shadow_enabled;
 	float dim;
 

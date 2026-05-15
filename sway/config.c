@@ -361,7 +361,7 @@ static void config_defaults(struct sway_config *config) {
 	color_to_rgba(config->dim_inactive_colors.urgent, 0x900000FF);
 
 	config->blur_enabled = false;
-	config->blur_border = false;
+	config->blur_decorations = false;
 	config->blur_xray = false;
 	config->blur_data = blur_data_get_default();
 

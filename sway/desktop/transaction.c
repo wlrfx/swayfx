@@ -598,7 +598,7 @@ static void arrange_container(struct sway_container *con,
 			border_left, border_top);
 
 		wlr_scene_node_set_enabled(&con->blur->node, con->blur_enabled && con->blur_enabled);
-		if (con->blur_border) {
+		if (con->blur_decorations) {
 			int y_offset = con->current.height - height;
 			wlr_scene_node_set_position(&con->blur->node, 0, -y_offset);
 			wlr_scene_blur_set_size(con->blur, width, height + y_offset);
@@ -612,7 +612,7 @@ static void arrange_container(struct sway_container *con,
 		if (title_bar) {
 			wlr_scene_node_set_enabled(&con->title_bar.tree->node, false);
 
-			if(is_tabbed_or_stacked && config->blur_enabled && config->blur_border) {
+			if(is_tabbed_or_stacked && config->blur_enabled && config->blur_decorations) {
 				wlr_scene_node_set_enabled(&con->blur->node, con->blur_enabled);
 				int y_offset = con->current.height - height;
 				wlr_scene_node_set_position(&con->blur->node, 0, -y_offset);

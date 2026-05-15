@@ -5,12 +5,12 @@
 #include "sway/tree/root.h"
 #include "util.h"
 
-static void arrange_blur_border_iter(struct sway_container *con, void *data) {
-	con->blur_border = config->blur_border;
+static void arrange_blur_decorations_iter(struct sway_container *con, void *data) {
+	con->blur_decorations = config->blur_decorations;
 }
 
-struct cmd_results *cmd_blur_border(int argc, char **argv) {
-	struct cmd_results *error = checkarg(argc, "blur_border", EXPECTED_AT_LEAST, 1);
+struct cmd_results *cmd_blur_decorations(int argc, char **argv) {
+	struct cmd_results *error = checkarg(argc, "blur_decorations", EXPECTED_AT_LEAST, 1);
 
 	if (error) {
 		return error;
@@ -20,13 +20,13 @@ struct cmd_results *cmd_blur_border(int argc, char **argv) {
 
 	bool result = parse_boolean(argv[0], true);
 	if (con == NULL) {
-		config->blur_border = result;
+		config->blur_decorations = result;
 
 		// Config reload: reset all containers to config value
-		root_for_each_container(arrange_blur_border_iter, NULL);
+		root_for_each_container(arrange_blur_decorations_iter, NULL);
 		arrange_root();
 	} else {
-		con->blur_border = result;
+		con->blur_decorations = result;
 		arrange_container(con);
 	}
 
