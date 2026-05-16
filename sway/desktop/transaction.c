@@ -408,27 +408,29 @@ static void arrange_container(struct sway_container *con,
 	// make sure it's enabled for viewing
 	wlr_scene_node_set_enabled(&con->scene_tree->node, true);
 
-	if (con->view) {
-		// reuse the position from arrange_child. A bit hacky, but this reduces diff size vs upstream.
-		int x = get_animated_value(con->scene_tree->node.x + con->animation_state.delta_x,
-			con->scene_tree->node.x, *con->animation_state.animation);
-		int y = get_animated_value(con->scene_tree->node.y + con->animation_state.delta_y,
-			con->scene_tree->node.y, *con->animation_state.animation);
-		wlr_scene_node_set_position(&con->scene_tree->node, x, y);
+	if (!con->node.destroying) {
+		if (con->view) {
+			// reuse the position from arrange_child. A bit hacky, but this reduces diff size vs upstream.
+			int x = get_animated_value(con->scene_tree->node.x + con->animation_state.delta_x,
+				con->scene_tree->node.x, *con->animation_state.animation);
+			int y = get_animated_value(con->scene_tree->node.y + con->animation_state.delta_y,
+				con->scene_tree->node.y, *con->animation_state.animation);
+			wlr_scene_node_set_position(&con->scene_tree->node, x, y);
 
-		width = get_animated_value(width + con->animation_state.delta_width, width,
-			*con->animation_state.animation);
-		if (width <= 0) {
-			return;
+			width = get_animated_value(width + con->animation_state.delta_width, width,
+				*con->animation_state.animation);
+			if (width <= 0) {
+				return;
+			}
+			height = get_animated_value(height + con->animation_state.delta_height, height,
+				*con->animation_state.animation);
+			if (height <= 0) {
+				return;
+			}
 		}
-		height = get_animated_value(height + con->animation_state.delta_height, height,
-			*con->animation_state.animation);
-		if (height <= 0) {
-			return;
-		}
+		con->animation_state.current_width = width;
+		con->animation_state.current_height = height;
 	}
-	con->animation_state.current_width = width;
-	con->animation_state.current_height = height;
 
 	if (con->output_handler) {
 		wlr_scene_buffer_set_dest_size(con->output_handler, width, height);
@@ -571,12 +573,11 @@ static void arrange_container(struct sway_container *con,
 			};
 			wlr_scene_subsurface_tree_set_clip(&con->view->content_tree->node, &clip);
 		}
-		con->animation_state.current_content_width = content_width;
-		if (content_width <= 0) {
-			return;
+		if (!con->node.destroying) {
+			con->animation_state.current_content_width = content_width;
+			con->animation_state.current_content_height = content_height;
 		}
-		con->animation_state.current_content_height = content_height;
-		if (content_height <= 0) {
+		if (content_width <= 0 || content_height <= 0) {
 			return;
 		}
 
@@ -871,6 +872,9 @@ void animation_update_callback() {
 }
 
 static bool should_con_new_animation(struct sway_container *con, struct sway_container_state *new_state) {
+	if (con->node.destroying) {
+		return false;
+	}
 	return con->current.width != new_state->width ||
 		con->current.height != new_state->height ||
 		con->current.x != new_state->x ||
