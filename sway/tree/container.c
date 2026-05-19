@@ -131,6 +131,10 @@ struct sway_container *container_create(struct sway_view *view) {
 	c->animation_state.from_height = 0;
 	c->animation_state.to_width = -1;
 	c->animation_state.to_height = -1;
+	c->animation_state.current_global_x = 0;
+	c->animation_state.current_global_y = 0;
+	c->animation_state.current_width = 0;
+	c->animation_state.current_height = 0;
 	c->animation_state.current_content_width = -1;
 	c->animation_state.current_content_height = -1;
 
