@@ -53,7 +53,7 @@ static struct sway_transaction *transaction_create(void) {
 }
 
 static void _arrange_container(struct sway_container *con,
-		int width, int height, bool title_bar, int gaps);
+		int width, int height, int x, int y, bool title_bar, int gaps);
 
 static void anim_update_callback(struct sway_container *con) {
 	// if there's a pending transaction there will be a re-arrange anyway
@@ -65,12 +65,10 @@ static void anim_update_callback(struct sway_container *con) {
 		con->animation_state.to_width, con->animation_state.animation);
 	int height = get_animated_value(con->animation_state.from_height,
 		con->animation_state.to_height, con->animation_state.animation);
-
 	int x = get_animated_value(con->animation_state.from_x,
 		con->animation_state.to_x, con->animation_state.animation);
 	int y = get_animated_value(con->animation_state.from_y,
 		con->animation_state.to_y, con->animation_state.animation);
-	wlr_scene_node_set_position(&con->scene_tree->node, x, y);
 
 	bool has_title_bar = true;
 	if (con->current.parent &&
@@ -78,7 +76,7 @@ static void anim_update_callback(struct sway_container *con) {
 			con->current.parent->current.layout == L_TABBED)) {
 		has_title_bar = con->current.parent->current.children->length > 0;
 	}
-	_arrange_container(con, width, height, has_title_bar, 0);
+	_arrange_container(con, width, height, x, y, has_title_bar, 0);
 }
 
 static void close_anim_complete_callback(struct sway_container *con) {
@@ -342,7 +340,7 @@ static void disable_container(struct sway_container *con) {
 }
 
 static void arrange_container(struct sway_container *con,
-		int width, int height, bool title_bar, int gaps);
+		int width, int height, int x, int y, bool title_bar, int gaps);
 
 static void arrange_children(enum sway_container_layout layout, list_t *children,
 		struct sway_container *active, struct wlr_scene_tree *content,
@@ -370,12 +368,11 @@ static void arrange_children(enum sway_container_layout layout, list_t *children
 			wlr_scene_node_set_enabled(&child->blur->node, activated);
 			wlr_scene_node_set_enabled(&child->shadow->node, false);
 			wlr_scene_node_set_enabled(&child->scene_tree->node, true);
-			wlr_scene_node_set_position(&child->scene_tree->node, 0, title_bar_height);
 			wlr_scene_node_reparent(&child->scene_tree->node, content);
 
 			int net_height = height - title_bar_height;
 			if (activated && width > 0 && net_height > 0) {
-				arrange_container(child, width, net_height, title_bar_height == 0, 0);
+				arrange_container(child, width, net_height, 0, title_bar_height, title_bar_height == 0, 0);
 			} else {
 				disable_container(child);
 			}
@@ -402,12 +399,11 @@ static void arrange_children(enum sway_container_layout layout, list_t *children
 			wlr_scene_node_set_enabled(&child->blur->node, activated);
 			wlr_scene_node_set_enabled(&child->shadow->node, false);
 			wlr_scene_node_set_enabled(&child->scene_tree->node, true);
-			wlr_scene_node_set_position(&child->scene_tree->node, 0, title_height);
 			wlr_scene_node_reparent(&child->scene_tree->node, content);
 
 			int net_height = height - title_height;
 			if (activated && width > 0 && net_height > 0) {
-				arrange_container(child, width, net_height, title_bar_height == 0, 0);
+				arrange_container(child, width, net_height, 0, title_height, title_bar_height == 0, 0);
 			} else {
 				disable_container(child);
 			}
@@ -424,10 +420,9 @@ static void arrange_children(enum sway_container_layout layout, list_t *children
 			wlr_scene_node_set_enabled(&child->blur->node, true);
 			wlr_scene_node_set_enabled(&child->shadow->node,
 					container_has_shadow(child) && child->view);
-			wlr_scene_node_set_position(&child->scene_tree->node, 0, off);
 			wlr_scene_node_reparent(&child->scene_tree->node, content);
 			if (width > 0 && cheight > 0) {
-				arrange_container(child, width, cheight, true, gaps);
+				arrange_container(child, width, cheight, 0, off, true, gaps);
 				off += cheight + gaps;
 			} else {
 				disable_container(child);
@@ -443,14 +438,13 @@ static void arrange_children(enum sway_container_layout layout, list_t *children
 			wlr_scene_node_set_enabled(&child->blur->node, true);
 			wlr_scene_node_set_enabled(&child->shadow->node,
 					container_has_shadow(child) && child->view);
-			wlr_scene_node_set_position(&child->scene_tree->node, off, 0);
-			wlr_scene_node_reparent(&child->scene_tree->node, content);
 			if (cwidth > 0 && height > 0) {
-				arrange_container(child, cwidth, height, true, gaps);
+				arrange_container(child, cwidth, height, off, 0, true, gaps);
 				off += cwidth + gaps;
 			} else {
 				disable_container(child);
 			}
+			wlr_scene_node_reparent(&child->scene_tree->node, content);
 		}
 	} else {
 		sway_assert(false, "unreachable");
@@ -458,7 +452,9 @@ static void arrange_children(enum sway_container_layout layout, list_t *children
 }
 
 static void _arrange_container(struct sway_container *con,
-		int width, int height, bool title_bar, int gaps) {
+		int width, int height, int x, int y, bool title_bar, int gaps) {
+	wlr_scene_node_set_position(&con->scene_tree->node, x, y);
+
 	// this container might have previously been in the scratchpad,
 	// make sure it's enabled for viewing
 	wlr_scene_node_set_enabled(&con->scene_tree->node, true);
@@ -501,6 +497,12 @@ static void _arrange_container(struct sway_container *con,
 	}
 
 	if (con->view) {
+		wlr_scene_node_coords(&con->scene_tree->node,
+			&con->animation_state.current_global_x,
+			&con->animation_state.current_global_y);
+		con->animation_state.current_width = width;
+		con->animation_state.current_height = height;
+
 		int corner_radius = has_corner_radius ? con->corner_radius : 0;
 		int border_top = container_titlebar_height();
 		int border_width = con->current.border_thickness;
@@ -646,32 +648,50 @@ static void _arrange_container(struct sway_container *con,
 	}
 }
 
+// TODO: fullscreen is black during animation
+// TODO: stacked and tabbed cons
 static void arrange_container(struct sway_container *con,
-		int width, int height, bool title_bar, int gaps) {
+		int width, int height, int x, int y, bool title_bar, int gaps) {
 	if (!config->animation_duration_ms || !con->view) {
-		_arrange_container(con, width, height, title_bar, gaps);
+		_arrange_container(con, width, height, x, y, title_bar, gaps);
 		return;
 	}
 
-	con->animation_state.to_x = con->scene_tree->node.x;
-	con->animation_state.to_y = con->scene_tree->node.y;
+	if (con->animation_state.to_x == x &&
+			con->animation_state.to_y == y &&
+			con->animation_state.to_width == width &&
+			con->animation_state.to_height == height) {
+		_arrange_container(con, width, height, x, y, title_bar, gaps);
+		return;
+	}
+
+	con->animation_state.to_x = x;
+	con->animation_state.to_y = y;
 	con->animation_state.to_width = width;
 	con->animation_state.to_height = height;
 	con->animation_state.to_alpha = con->alpha;
 
 	// open animation
 	if (con->animation_state.from_x == -1) {
-		con->animation_state.from_x = con->animation_state.to_x;
-		con->animation_state.from_y = con->animation_state.to_y;
-		con->animation_state.from_width = con->animation_state.to_width;
-		con->animation_state.from_height = con->animation_state.to_height;
+		con->animation_state.from_x = x;
+		con->animation_state.from_y = y;
+		con->animation_state.from_width = width;
+		con->animation_state.from_height = height;
 		con->animation_state.from_alpha = 0.0f;
 	} else {
-		// move animation: change those global coords from earlier to local
+		// move animation
 		int lx, ly;
 		wlr_scene_node_coords(&con->scene_tree->node, &lx, &ly);
-		con->animation_state.from_x = con->animation_state.to_x + con->animation_state.from_x - lx;
-		con->animation_state.from_y = con->animation_state.to_y + con->animation_state.from_y - ly;
+		int global_delta_x = con->animation_state.current_global_x - lx;
+		int global_delta_y = con->animation_state.current_global_y - ly;
+
+		con->animation_state.from_x = con->scene_tree->node.x + global_delta_x;
+		con->animation_state.from_y = con->scene_tree->node.y + global_delta_y;
+
+		con->animation_state.from_width = con->animation_state.current_width;
+		con->animation_state.from_height = con->animation_state.current_height;
+		con->animation_state.from_alpha = get_animated_value(con->animation_state.from_alpha,
+			con->animation_state.to_alpha, con->animation_state.animation);
 	}
 
 	add_animation(&con->animation_state.animation, anim_update_callback, NULL);
@@ -706,12 +726,11 @@ static void arrange_fullscreen(struct wlr_scene_tree *tree,
 		wlr_scene_node_set_enabled(&fs->scene_tree->node, false);
 	} else {
 		fs_node = &fs->scene_tree->node;
-		arrange_container(fs, width, height, true, container_get_gaps(fs));
+		arrange_container(fs, width, height, 0, 0, true, container_get_gaps(fs));
 	}
 
 	wlr_scene_node_reparent(fs_node, tree);
 	wlr_scene_node_lower_to_bottom(fs_node);
-	wlr_scene_node_set_position(fs_node, 0, 0);
 }
 
 static void arrange_workspace_floating(struct sway_workspace *ws) {
@@ -740,14 +759,12 @@ static void arrange_workspace_floating(struct sway_workspace *ws) {
 		}
 
 		wlr_scene_node_reparent(&floater->scene_tree->node, layer);
-		wlr_scene_node_set_position(&floater->scene_tree->node,
-			floater->current.x, floater->current.y);
 		wlr_scene_node_set_enabled(&floater->scene_tree->node, true);
 		wlr_scene_node_set_enabled(&floater->shadow->node, container_has_shadow(floater) && floater->view);
 		wlr_scene_node_set_enabled(&floater->border.tree->node, true);
 
 		arrange_container(floater, floater->current.width, floater->current.height,
-			true, ws->gaps_inner);
+			floater->current.x, floater->current.y, true, ws->gaps_inner);
 	}
 }
 
@@ -924,24 +941,6 @@ static void arrange_root(struct sway_root *root) {
 	arrange_popups(root->layers.popup);
 }
 
-// TODO: reset animation state on going to scratchpad
-static void animation_set_from(struct sway_container *con) {
-	if (!con->view || !con->current.workspace) {
-		return;
-	}
-
-	int lx, ly;
-	wlr_scene_node_coords(&con->scene_tree->node, &lx, &ly);
-	con->animation_state.from_x = lx;
-	con->animation_state.from_y = ly;
-	con->animation_state.from_width = get_animated_value(con->animation_state.from_width,
-		con->animation_state.to_width, con->animation_state.animation);
-	con->animation_state.from_height = get_animated_value(con->animation_state.from_height,
-		con->animation_state.to_height, con->animation_state.animation);
-	con->animation_state.from_alpha = get_animated_value(con->animation_state.from_alpha,
-		con->animation_state.to_alpha, con->animation_state.animation);
-}
-
 /**
  * Apply a transaction to the "current" state of the tree.
  */
@@ -974,7 +973,6 @@ static void transaction_apply(struct sway_transaction *transaction) {
 					&instruction->workspace_state);
 			break;
 		case N_CONTAINER:
-			animation_set_from(node->sway_container);
 			apply_container_state(node->sway_container,
 					&instruction->container_state);
 			break;

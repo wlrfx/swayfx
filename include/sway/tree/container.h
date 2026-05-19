@@ -160,7 +160,6 @@ struct sway_container {
 		struct animation animation;
 		float from_alpha;
 		float to_alpha;
-		// TODO: from_global_x / y?
 		int from_x;
 		int from_y;
 		int to_x;
@@ -169,6 +168,10 @@ struct sway_container {
 		int to_width;
 		int from_height;
 		int to_height;
+		int current_global_x;
+		int current_global_y;
+		int current_width;
+		int current_height;
 		int current_content_width; // needed for output.c
 		int current_content_height; // needed for output.c
 	} animation_state;
