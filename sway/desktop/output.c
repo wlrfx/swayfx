@@ -263,7 +263,7 @@ void output_configure_scene(struct sway_output *output, struct wlr_scene_node *n
 				buffer,
 				has_titlebar ? corner_radii_bottom(buffer_corner_radius) : corner_radii_all(buffer_corner_radius)
 			);
-			
+
 			if (closest_con) {
 				int content_width = closest_con->animation_state.current_content_width;
 				int content_height = closest_con->animation_state.current_content_height;
@@ -316,7 +316,7 @@ void output_configure_scene(struct sway_output *output, struct wlr_scene_node *n
 		int blur_corner_radius = container_has_corner_radius(closest_con) ? corner_radius : 0;
 		wlr_scene_blur_set_corner_radii(
 			blur,
-			has_titlebar ? corner_radii_bottom(blur_corner_radius) : corner_radii_all(blur_corner_radius)
+			(has_titlebar && !closest_con->blur_decorations) ? corner_radii_bottom(blur_corner_radius) : corner_radii_all(blur_corner_radius)
 		);
 	}
 }

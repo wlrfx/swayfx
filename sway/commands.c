@@ -52,6 +52,7 @@ static const struct cmd_handler handlers[] = {
 	{ "blur", cmd_blur },
 	{ "blur_brightness", cmd_blur_brightness },
 	{ "blur_contrast", cmd_blur_contrast },
+	{ "blur_decorations", cmd_blur_decorations },
 	{ "blur_noise", cmd_blur_noise },
 	{ "blur_passes", cmd_blur_passes },
 	{ "blur_radius", cmd_blur_radius },

@@ -173,6 +173,7 @@ struct sway_container *container_create(struct sway_view *view) {
 	c->marks = create_list();
 	c->corner_radius = config->corner_radius;
 	c->blur_enabled = config->blur_enabled;
+	c->blur_decorations = config->blur_decorations;
 	c->shadow_enabled = config->shadow_enabled;
 	c->dim = config->default_dim_inactive;
 
@@ -2031,4 +2032,3 @@ bool container_has_corner_radius(struct sway_container *con) {
 			!(config->smart_corner_radius && con->current.workspace->current_gaps.top == 0)) &&
 			con->corner_radius;
 }
-
