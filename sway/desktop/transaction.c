@@ -61,6 +61,10 @@ static void anim_update_callback(struct sway_container *con) {
 		return;
 	}
 
+	if (con->current.fullscreen_mode != FULLSCREEN_NONE) {
+		return;
+	}
+
 	int width = get_animated_value(con->animation_state.from_width,
 		con->animation_state.to_width, con->animation_state.animation);
 	int height = get_animated_value(con->animation_state.from_height,
@@ -648,7 +652,6 @@ static void _arrange_container(struct sway_container *con,
 	}
 }
 
-// TODO: fullscreen is black during animation
 // TODO: stacked and tabbed cons
 static void arrange_container(struct sway_container *con,
 		int width, int height, int x, int y, bool title_bar, int gaps) {
@@ -661,7 +664,10 @@ static void arrange_container(struct sway_container *con,
 			con->animation_state.to_y == y &&
 			con->animation_state.to_width == width &&
 			con->animation_state.to_height == height) {
-		_arrange_container(con, width, height, x, y, title_bar, gaps);
+		if (!con->animation_state.animation.initialized ||
+				con->animation_state.animation.progress >= 1.0f) {
+			_arrange_container(con, width, height, x, y, title_bar, gaps);
+		}
 		return;
 	}
 
