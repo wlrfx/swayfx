@@ -74,12 +74,9 @@ static void anim_update_callback(struct sway_container *con) {
 	int y = get_animated_value(con->animation_state.from_y,
 		con->animation_state.to_y, con->animation_state.animation);
 
-	bool has_title_bar = true;
-	if (con->current.parent &&
-			(con->current.parent->current.layout == L_STACKED ||
-			con->current.parent->current.layout == L_TABBED)) {
-		has_title_bar = con->current.parent->current.children->length > 0;
-	}
+	bool has_title_bar = !(con->current.parent &&
+		(con->current.parent->current.layout == L_STACKED ||
+		 con->current.parent->current.layout == L_TABBED));
 	_arrange_container(con, width, height, x, y, has_title_bar, 0);
 }
 
