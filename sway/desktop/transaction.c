@@ -439,13 +439,13 @@ static void arrange_children(enum sway_container_layout layout, list_t *children
 			wlr_scene_node_set_enabled(&child->blur->node, true);
 			wlr_scene_node_set_enabled(&child->shadow->node,
 					container_has_shadow(child) && child->view);
+			wlr_scene_node_reparent(&child->scene_tree->node, content);
 			if (cwidth > 0 && height > 0) {
 				arrange_container(child, cwidth, height, off, 0, true, gaps);
 				off += cwidth + gaps;
 			} else {
 				disable_container(child);
 			}
-			wlr_scene_node_reparent(&child->scene_tree->node, content);
 		}
 	} else {
 		sway_assert(false, "unreachable");
