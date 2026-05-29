@@ -708,6 +708,8 @@ static void arrange_container(struct sway_container *con,
 	}
 
 	add_animation(&con->animation_state.animation, anim_update_callback, NULL);
+
+	// arrange at starting state to "win" position race between animation start and the reparent
 	_arrange_container(con, con->animation_state.from_width,
 		con->animation_state.from_height,
 		con->animation_state.from_x, con->animation_state.from_y,
