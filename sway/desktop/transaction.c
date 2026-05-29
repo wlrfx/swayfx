@@ -52,6 +52,12 @@ static struct sway_transaction *transaction_create(void) {
 	return transaction;
 }
 
+static bool con_has_title_bar(struct sway_container *con) {
+	return !(con->current.parent &&
+		(con->current.parent->current.layout == L_STACKED ||
+		 con->current.parent->current.layout == L_TABBED));
+}
+
 static void _arrange_container(struct sway_container *con,
 		int width, int height, int x, int y, bool title_bar, int gaps);
 
@@ -74,10 +80,7 @@ static void anim_update_callback(struct sway_container *con) {
 	int y = get_animated_value(con->animation_state.from_y,
 		con->animation_state.to_y, con->animation_state.animation);
 
-	bool has_title_bar = !(con->current.parent &&
-		(con->current.parent->current.layout == L_STACKED ||
-		 con->current.parent->current.layout == L_TABBED));
-	_arrange_container(con, width, height, x, y, has_title_bar, 0);
+	_arrange_container(con, width, height, x, y, con_has_title_bar(con), 0);
 }
 
 static void close_anim_complete_callback(struct sway_container *con) {
@@ -705,6 +708,10 @@ static void arrange_container(struct sway_container *con,
 	}
 
 	add_animation(&con->animation_state.animation, anim_update_callback, NULL);
+	_arrange_container(con, con->animation_state.from_width,
+		con->animation_state.from_height,
+		con->animation_state.from_x, con->animation_state.from_y,
+		con_has_title_bar(con), 0);
 }
 
 static int container_get_gaps(struct sway_container *con) {
@@ -1002,7 +1009,7 @@ static void transaction_progress(void) {
 	arrange_root(root);
 	cursor_rebase_all();
 	transaction_destroy(server.queued_transaction);
-	start_animations();
+	start_animations(); // TODO: is this the best place for this?
 	server.queued_transaction = NULL;
 
 	if (!server.pending_transaction) {
