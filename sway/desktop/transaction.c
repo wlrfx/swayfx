@@ -346,6 +346,26 @@ static void disable_container(struct sway_container *con) {
 static void arrange_container(struct sway_container *con,
 		int width, int height, int x, int y, bool title_bar, int gaps);
 
+static void arrange_inactive_child(struct sway_container *child,
+		int width, int height, int y_pos) {
+	finish_animation(&child->animation_state.animation);
+	wlr_scene_node_set_position(&child->scene_tree->node, 0, y_pos);
+	child->animation_state.current_width = width;
+	child->animation_state.current_height = height;
+	if (child->view) {
+		wlr_scene_node_coords(&child->scene_tree->node,
+			&child->animation_state.current_global_x,
+			&child->animation_state.current_global_y);
+	}
+	child->animation_state.from_alpha = child->alpha;
+	child->animation_state.to_alpha = child->alpha;
+	child->animation_state.from_x = 0;
+	child->animation_state.from_y = y_pos;
+	child->animation_state.from_width = width;
+	child->animation_state.from_height = height;
+	disable_container(child);
+}
+
 static void arrange_children(enum sway_container_layout layout, list_t *children,
 		struct sway_container *active, struct wlr_scene_tree *content,
 		int width, int height, int gaps) {
@@ -378,7 +398,7 @@ static void arrange_children(enum sway_container_layout layout, list_t *children
 			if (activated && width > 0 && net_height > 0) {
 				arrange_container(child, width, net_height, 0, title_bar_height, title_bar_height == 0, 0);
 			} else {
-				disable_container(child);
+				arrange_inactive_child(child, width, net_height, title_bar_height);
 			}
 
 			title_offset = next_title_offset;
@@ -409,7 +429,7 @@ static void arrange_children(enum sway_container_layout layout, list_t *children
 			if (activated && width > 0 && net_height > 0) {
 				arrange_container(child, width, net_height, 0, title_height, title_bar_height == 0, 0);
 			} else {
-				disable_container(child);
+				arrange_inactive_child(child, width, net_height, title_height);
 			}
 
 			y += title_bar_height;
