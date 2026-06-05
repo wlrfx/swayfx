@@ -143,8 +143,7 @@ static void transaction_destroy(struct sway_transaction *transaction) {
 					con->animation_state.to_width = con->animation_state.from_width * POPIN_FACTOR;
 					con->animation_state.to_height = con->animation_state.from_height * POPIN_FACTOR;
 					add_animation(&con->animation_state.animation, anim_update_callback, close_anim_complete_callback);
-				}
-				else {
+				} else {
 					container_destroy(node->sway_container);
 				}
 				break;
