@@ -687,7 +687,6 @@ static void _arrange_container(struct sway_container *con,
 	}
 }
 
-// TODO: stacked and tabbed cons
 static void arrange_container(struct sway_container *con,
 		int width, int height, int x, int y, bool title_bar, int gaps) {
 	if (!config->animation_duration_ms || !con->view) {
@@ -1039,7 +1038,7 @@ static void transaction_progress(void) {
 	arrange_root(root);
 	cursor_rebase_all();
 	transaction_destroy(server.queued_transaction);
-	start_animations(); // TODO: is this the best place for this?
+	start_animations();
 	server.queued_transaction = NULL;
 
 	if (!server.pending_transaction) {
