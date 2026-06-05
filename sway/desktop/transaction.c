@@ -127,7 +127,8 @@ static void transaction_destroy(struct sway_transaction *transaction) {
 						con->animation_state.to_height, con->animation_state.animation);
 					con->animation_state.to_width = con->animation_state.from_width;
 					con->animation_state.to_height = con->animation_state.from_height;
-					add_animation(&con->animation_state.animation, anim_update_callback, close_anim_complete_callback);
+					add_animation(&con->animation_state.animation, anim_update_callback, close_anim_complete_callback, 0);
+					delay_other_animations(con, config->animation_duration_ms * 2 / 5);
 				}
 				else {
 					container_destroy(con);
@@ -711,6 +712,8 @@ static void arrange_container(struct sway_container *con,
 		con->animation_state.from_width = width;
 		con->animation_state.from_height = height;
 		con->animation_state.from_alpha = 0.0f;
+		add_animation(&con->animation_state.animation, anim_update_callback, NULL,
+			config->animation_duration_ms * 2 / 5);
 	} else {
 		// move animation
 		int lx, ly;
@@ -725,9 +728,8 @@ static void arrange_container(struct sway_container *con,
 		con->animation_state.from_height = con->animation_state.current_height;
 		con->animation_state.from_alpha = get_animated_value(con->animation_state.from_alpha,
 			con->animation_state.to_alpha, con->animation_state.animation);
+		add_animation(&con->animation_state.animation, anim_update_callback, NULL, 0);
 	}
-
-	add_animation(&con->animation_state.animation, anim_update_callback, NULL);
 
 	// arrange at starting state to "win" position race between animation start and the reparent
 	_arrange_container(con, con->animation_state.from_width,
