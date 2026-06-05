@@ -114,10 +114,14 @@ static void transaction_destroy(struct sway_transaction *transaction) {
 				struct sway_container *con = node->sway_container;
 				if (con->view) {
 					// close animation
-					con->animation_state.from_x = con->scene_tree->node.x;
-					con->animation_state.from_y = con->scene_tree->node.y;
-					con->animation_state.to_x = con->scene_tree->node.x;
-					con->animation_state.to_y = con->scene_tree->node.y;
+					int lx, ly;
+					wlr_scene_node_coords(&con->scene_tree->node, &lx, &ly);
+					int global_delta_x = con->animation_state.current_global_x - lx;
+					int global_delta_y = con->animation_state.current_global_y - ly;
+					con->animation_state.from_x = con->scene_tree->node.x + global_delta_x;
+					con->animation_state.from_y = con->scene_tree->node.y + global_delta_y;
+					con->animation_state.to_x = con->animation_state.from_x;
+					con->animation_state.to_y = con->animation_state.from_y;
 					con->animation_state.from_alpha = get_animated_value(con->animation_state.from_alpha,
 						con->animation_state.to_alpha, con->animation_state.animation);
 					con->animation_state.to_alpha = 0.0f;
@@ -712,8 +716,7 @@ static void arrange_container(struct sway_container *con,
 		con->animation_state.from_width = width;
 		con->animation_state.from_height = height;
 		con->animation_state.from_alpha = 0.0f;
-		add_animation(&con->animation_state.animation, anim_update_callback, NULL,
-			config->animation_duration_ms * 2 / 5);
+		add_animation(&con->animation_state.animation, anim_update_callback, NULL, 0);
 	} else {
 		// move animation
 		int lx, ly;
