@@ -122,10 +122,10 @@ static float lerp(float a, float b, float t) {
 	return a * (1.0 - t) + b * t;
 }
 
-float get_animated_value(float from, float to, struct animation animation) {
+float get_animated_value(float from, float to, const struct animation *animation) {
 	if (!config->animation_duration_ms) {
 		return to;
 	}
-	return lerp(from, to, animation.multiplier);
+	return lerp(from, to, animation->multiplier);
 }
 

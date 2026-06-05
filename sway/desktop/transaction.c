@@ -74,21 +74,33 @@ static void anim_update_callback(struct sway_container *con) {
 	}
 
 	int width = get_animated_value(con->animation_state.from_width,
-		con->animation_state.to_width, con->animation_state.animation);
+		con->animation_state.to_width, &con->animation_state.animation);
 	int height = get_animated_value(con->animation_state.from_height,
-		con->animation_state.to_height, con->animation_state.animation);
+		con->animation_state.to_height, &con->animation_state.animation);
 	int x = get_animated_value(con->animation_state.from_x,
-		con->animation_state.to_x, con->animation_state.animation);
+		con->animation_state.to_x, &con->animation_state.animation);
 	int y = get_animated_value(con->animation_state.from_y,
-		con->animation_state.to_y, con->animation_state.animation);
+		con->animation_state.to_y, &con->animation_state.animation);
 
 	_arrange_container(con, width, height, x, y, con_has_title_bar(con), 0);
 }
 
 static void close_anim_complete_callback(struct sway_container *con) {
-	assert(con->view->saved_surface_tree);
 	view_remove_saved_buffer(con->view);
 	container_destroy(con);
+}
+
+/* Compensate for scene-graph reparenting by computing the drift between
+ * the last tracked global coordinates and the actual current global position,
+ * then applying that delta to the local scene node position
+*/
+static void snap_animation_position(struct sway_container *con) {
+	int lx, ly;
+	wlr_scene_node_coords(&con->scene_tree->node, &lx, &ly);
+	int global_delta_x = con->animation_state.current_global_x - lx;
+	int global_delta_y = con->animation_state.current_global_y - ly;
+	con->animation_state.from_x = con->scene_tree->node.x + global_delta_x;
+	con->animation_state.from_y = con->scene_tree->node.y + global_delta_y;
 }
 
 static void transaction_destroy(struct sway_transaction *transaction) {
@@ -116,19 +128,14 @@ static void transaction_destroy(struct sway_transaction *transaction) {
 				struct sway_container *con = node->sway_container;
 				if (con->view) {
 					// close animation — pop-out: shrink and fade out centered
-					int lx, ly;
-					wlr_scene_node_coords(&con->scene_tree->node, &lx, &ly);
-					int global_delta_x = con->animation_state.current_global_x - lx;
-					int global_delta_y = con->animation_state.current_global_y - ly;
-					con->animation_state.from_x = con->scene_tree->node.x + global_delta_x;
-					con->animation_state.from_y = con->scene_tree->node.y + global_delta_y;
+					snap_animation_position(con);
 					con->animation_state.from_alpha = get_animated_value(con->animation_state.from_alpha,
-						con->animation_state.to_alpha, con->animation_state.animation);
+						con->animation_state.to_alpha, &con->animation_state.animation);
 					con->animation_state.to_alpha = 0.0f;
 					con->animation_state.from_width = get_animated_value(con->animation_state.from_width,
-						con->animation_state.to_width, con->animation_state.animation);
+						con->animation_state.to_width, &con->animation_state.animation);
 					con->animation_state.from_height = get_animated_value(con->animation_state.from_height,
-						con->animation_state.to_height, con->animation_state.animation);
+						con->animation_state.to_height, &con->animation_state.animation);
 					con->animation_state.to_x = con->animation_state.from_x +
 						(con->animation_state.from_width * (1.0f - POPIN_FACTOR)) / 2.0f;
 					con->animation_state.to_y = con->animation_state.from_y +
@@ -365,12 +372,8 @@ static void arrange_inactive_child(struct sway_container *child,
 			&child->animation_state.current_global_x,
 			&child->animation_state.current_global_y);
 	}
-	child->animation_state.from_alpha = child->alpha;
-	child->animation_state.to_alpha = child->alpha;
 	child->animation_state.from_x = 0;
 	child->animation_state.from_y = y_pos;
-	child->animation_state.from_width = width;
-	child->animation_state.from_height = height;
 	disable_container(child);
 }
 
@@ -721,18 +724,12 @@ static void arrange_container(struct sway_container *con,
 		add_animation(&con->animation_state.animation, anim_update_callback, NULL);
 	} else {
 		// move animation
-		int lx, ly;
-		wlr_scene_node_coords(&con->scene_tree->node, &lx, &ly);
-		int global_delta_x = con->animation_state.current_global_x - lx;
-		int global_delta_y = con->animation_state.current_global_y - ly;
-
-		con->animation_state.from_x = con->scene_tree->node.x + global_delta_x;
-		con->animation_state.from_y = con->scene_tree->node.y + global_delta_y;
+		snap_animation_position(con);
 
 		con->animation_state.from_width = con->animation_state.current_width;
 		con->animation_state.from_height = con->animation_state.current_height;
 		con->animation_state.from_alpha = get_animated_value(con->animation_state.from_alpha,
-			con->animation_state.to_alpha, con->animation_state.animation);
+			con->animation_state.to_alpha, &con->animation_state.animation);
 		add_animation(&con->animation_state.animation, anim_update_callback, NULL);
 	}
 
