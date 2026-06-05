@@ -33,11 +33,6 @@ static float ease_out_cubic(float p) {
 static int animation_timer() {
 	struct animation *animation, *tmp;
 	wl_list_for_each_reverse_safe(animation, tmp, &animation_manager.animations, link) {
-		animation->delay_ms -= animation_manager.tick_time;
-		if (animation->delay_ms > 0) {
-			continue;
-		}
-
 		animation->progress = MIN(animation->progress + animation_manager.progress_delta, 1.0f);
 		animation->multiplier = ease_out_cubic(animation->progress);
 
@@ -61,7 +56,7 @@ static int animation_timer() {
 }
 
 void add_animation(struct animation *animation, void (*update_callback)(struct sway_container *),
-		void (*complete_callback)(struct sway_container *), int delay_ms) {
+		void (*complete_callback)(struct sway_container *)) {
 	if (!config->animation_duration_ms) {
 		return;
 	}
@@ -75,7 +70,6 @@ void add_animation(struct animation *animation, void (*update_callback)(struct s
 	animation->initialized = true;
 	animation->update = update_callback;
 	animation->complete = complete_callback;
-	animation->delay_ms = delay_ms > 0 ? delay_ms : 0;
 	wl_list_insert(&animation_manager.animations, &animation->link);
 }
 
@@ -86,15 +80,6 @@ void finish_animation(struct animation *animation) {
 	}
 	animation->progress = 1.0f;
 	animation->multiplier = 1.0f;
-}
-
-void delay_other_animations(struct sway_container *con, int delay_ms) {
-	struct animation *animation;
-	wl_list_for_each(animation, &animation_manager.animations, link) {
-		if (animation->con != con && animation->delay_ms == 0) {
-			animation->delay_ms = delay_ms;
-		}
-	}
 }
 
 void start_animations() {

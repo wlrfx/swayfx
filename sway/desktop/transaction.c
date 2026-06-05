@@ -21,6 +21,8 @@
 #include "list.h"
 #include "log.h"
 
+#define POPIN_FACTOR 0.8f
+
 struct sway_transaction {
 	struct wl_event_source *timer;
 	list_t *instructions;   // struct sway_transaction_instruction *
@@ -113,15 +115,13 @@ static void transaction_destroy(struct sway_transaction *transaction) {
 			case N_CONTAINER:
 				struct sway_container *con = node->sway_container;
 				if (con->view) {
-					// close animation
+					// close animation — pop-out: shrink and fade out centered
 					int lx, ly;
 					wlr_scene_node_coords(&con->scene_tree->node, &lx, &ly);
 					int global_delta_x = con->animation_state.current_global_x - lx;
 					int global_delta_y = con->animation_state.current_global_y - ly;
 					con->animation_state.from_x = con->scene_tree->node.x + global_delta_x;
 					con->animation_state.from_y = con->scene_tree->node.y + global_delta_y;
-					con->animation_state.to_x = con->animation_state.from_x;
-					con->animation_state.to_y = con->animation_state.from_y;
 					con->animation_state.from_alpha = get_animated_value(con->animation_state.from_alpha,
 						con->animation_state.to_alpha, con->animation_state.animation);
 					con->animation_state.to_alpha = 0.0f;
@@ -129,10 +129,13 @@ static void transaction_destroy(struct sway_transaction *transaction) {
 						con->animation_state.to_width, con->animation_state.animation);
 					con->animation_state.from_height = get_animated_value(con->animation_state.from_height,
 						con->animation_state.to_height, con->animation_state.animation);
-					con->animation_state.to_width = con->animation_state.from_width;
-					con->animation_state.to_height = con->animation_state.from_height;
-					add_animation(&con->animation_state.animation, anim_update_callback, close_anim_complete_callback, 0);
-					delay_other_animations(con, config->animation_duration_ms * 2 / 5);
+					con->animation_state.to_x = con->animation_state.from_x +
+						(con->animation_state.from_width * (1.0f - POPIN_FACTOR)) / 2.0f;
+					con->animation_state.to_y = con->animation_state.from_y +
+						(con->animation_state.from_height * (1.0f - POPIN_FACTOR)) / 2.0f;
+					con->animation_state.to_width = con->animation_state.from_width * POPIN_FACTOR;
+					con->animation_state.to_height = con->animation_state.from_height * POPIN_FACTOR;
+					add_animation(&con->animation_state.animation, anim_update_callback, close_anim_complete_callback);
 				}
 				else {
 					container_destroy(con);
@@ -702,14 +705,14 @@ static void arrange_container(struct sway_container *con,
 	con->animation_state.to_height = height;
 	con->animation_state.to_alpha = con->alpha;
 
-	// open animation
+	// open animation — pop-in: grow from center while fading in
 	if (con->animation_state.from_x == -1) {
-		con->animation_state.from_x = x;
-		con->animation_state.from_y = y;
-		con->animation_state.from_width = width;
-		con->animation_state.from_height = height;
+		con->animation_state.from_x = x + width * (1.0f - POPIN_FACTOR) / 2.0f;
+		con->animation_state.from_y = y + height * (1.0f - POPIN_FACTOR) / 2.0f;
+		con->animation_state.from_width = width * POPIN_FACTOR;
+		con->animation_state.from_height = height * POPIN_FACTOR;
 		con->animation_state.from_alpha = 0.0f;
-		add_animation(&con->animation_state.animation, anim_update_callback, NULL, 0);
+		add_animation(&con->animation_state.animation, anim_update_callback, NULL);
 	} else {
 		// move animation
 		int lx, ly;
@@ -724,7 +727,7 @@ static void arrange_container(struct sway_container *con,
 		con->animation_state.from_height = con->animation_state.current_height;
 		con->animation_state.from_alpha = get_animated_value(con->animation_state.from_alpha,
 			con->animation_state.to_alpha, con->animation_state.animation);
-		add_animation(&con->animation_state.animation, anim_update_callback, NULL, 0);
+		add_animation(&con->animation_state.animation, anim_update_callback, NULL);
 	}
 
 	// arrange at starting state to "win" position race between animation start and the reparent
