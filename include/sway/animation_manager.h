@@ -33,7 +33,7 @@ void finish_animation(struct animation *animation);
 
 void start_animations();
 
-float get_animated_value(float from, float to, struct animation animation);
+float get_animated_value(float from, float to, const struct animation *animation);
 
 #endif
 

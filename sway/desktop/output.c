@@ -229,7 +229,7 @@ void output_configure_scene(struct sway_output *output, struct wlr_scene_node *n
 	if (con) {
 		closest_con = con;
 		opacity = MIN(1, MAX(0, get_animated_value(con->animation_state.from_alpha,
-			con->animation_state.to_alpha, con->animation_state.animation)));
+			con->animation_state.to_alpha, &con->animation_state.animation)));
 		corner_radius = con->corner_radius;
 		blur_enabled = con->blur_enabled;
 		enum sway_container_layout layout = con->current.layout;
