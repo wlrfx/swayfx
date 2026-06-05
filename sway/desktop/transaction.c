@@ -125,9 +125,9 @@ static void transaction_destroy(struct sway_transaction *transaction) {
 				workspace_destroy(node->sway_workspace);
 				break;
 			case N_CONTAINER:
-				struct sway_container *con = node->sway_container;
-				if (con->view) {
-					// close animation — pop-out: shrink and fade out centered
+				// close animation — pop-out: shrink and fade out centered
+				if (node->sway_container->view) {
+					struct sway_container *con = node->sway_container;
 					snap_animation_position(con);
 					con->animation_state.from_alpha = get_animated_value(con->animation_state.from_alpha,
 						con->animation_state.to_alpha, &con->animation_state.animation);
@@ -145,7 +145,7 @@ static void transaction_destroy(struct sway_transaction *transaction) {
 					add_animation(&con->animation_state.animation, anim_update_callback, close_anim_complete_callback);
 				}
 				else {
-					container_destroy(con);
+					container_destroy(node->sway_container);
 				}
 				break;
 			}
