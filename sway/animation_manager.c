@@ -41,9 +41,7 @@ static int animation_timer() {
 		}
 
 		if (animation->progress == 1.0f) {
-			wl_list_remove(&animation->link);
-			animation->initialized = false;
-
+			finish_animation(animation);
 			if (animation->complete) {
 				animation->complete(animation->con);
 			}
@@ -73,6 +71,15 @@ void add_animation(struct animation *animation, void (*update_callback)(struct s
 	animation->update = update_callback;
 	animation->complete = complete_callback;
 	wl_list_insert(&animation_manager.animations, &animation->link);
+}
+
+void finish_animation(struct animation *animation) {
+	if (animation->initialized) {
+		wl_list_remove(&animation->link);
+		animation->initialized = false;
+	}
+	animation->progress = 1.0f;
+	animation->multiplier = 1.0f;
 }
 
 void start_animations() {
