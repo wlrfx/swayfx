@@ -58,6 +58,9 @@ static int animation_timer() {
 void add_animation(struct animation *animation, void (*update_callback)(struct sway_container *),
 		void (*complete_callback)(struct sway_container *)) {
 	if (!config->animation_duration_ms) {
+		if (complete_callback) {
+			complete_callback(animation->con);
+		}
 		return;
 	}
 	// remove previous instances of this animation
