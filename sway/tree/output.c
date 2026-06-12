@@ -147,6 +147,8 @@ struct sway_output *output_create(struct wlr_output *wlr_output) {
 	output->current.workspaces = create_list();
 	wl_list_init(&output->layer_surfaces);
 
+	output->prev_active_workspace = NULL;
+
 	return output;
 }
 

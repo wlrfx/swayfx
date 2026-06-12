@@ -4,6 +4,7 @@
 #include <scenefx/types/wlr_scene.h>
 #include <stdbool.h>
 #include <wlr/types/wlr_ext_workspace_v1.h>
+#include "sway/animation_manager.h"
 #include "sway/config.h"
 #include "sway/tree/container.h"
 #include "sway/tree/node.h"
@@ -53,6 +54,12 @@ struct sway_workspace {
 
 	struct sway_workspace_state current;
 	struct wlr_ext_workspace_handle_v1 *ext_workspace; // Always set.
+
+	struct {
+		struct animation animation;
+		int slide_x_from;
+		int slide_x_to;
+	} animation_state;
 };
 
 struct workspace_config *workspace_find_config(const char *ws_name);

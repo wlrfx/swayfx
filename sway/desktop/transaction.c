@@ -63,7 +63,8 @@ static bool con_has_title_bar(struct sway_container *con) {
 static void _arrange_container(struct sway_container *con,
 		int width, int height, int x, int y, bool title_bar, int gaps);
 
-static void anim_update_callback(struct sway_container *con) {
+static void anim_update_callback(void *data) {
+	struct sway_container *con = data;
 	// if there's a pending transaction there will be a re-arrange anyway
 	if (server.pending_transaction) {
 		return;
@@ -90,9 +91,50 @@ static void anim_update_callback(struct sway_container *con) {
 	_arrange_container(con, width, height, x, y, con_has_title_bar(con), 0);
 }
 
-static void close_anim_complete_callback(struct sway_container *con) {
+static void close_anim_complete_callback(void *data) {
+	struct sway_container *con = data;
 	view_remove_saved_buffer(con->view);
 	container_destroy(con);
+}
+
+static void workspace_slide_update_callback(void *data) {
+	struct sway_workspace *ws = data;
+	if (!ws || !ws->output) {
+		return;
+	}
+	struct sway_output *output = ws->output;
+	struct wlr_box *area = &output->usable_area;
+	struct side_gaps *gaps = &ws->current_gaps;
+
+	int slide_offset = get_animated_value(ws->animation_state.slide_x_from,
+		ws->animation_state.slide_x_to,
+		&ws->animation_state.animation);
+
+	wlr_scene_node_set_position(&ws->layers.tiling->node,
+		gaps->left + area->x + slide_offset, gaps->top + area->y);
+
+	for (int i = 0; i < ws->current.floating->length; i++) {
+		struct sway_container *floater = ws->current.floating->items[i];
+		wlr_scene_node_set_position(&floater->scene_tree->node,
+			floater->current.x + slide_offset, floater->current.y);
+	}
+}
+
+static void workspace_slide_complete_callback(void *data) {
+	struct sway_workspace *ws = data;
+	if (!ws || !ws->output) {
+		return;
+	}
+	struct sway_output *output = ws->output;
+	if (output->current.active_workspace == ws) {
+		return;
+	}
+	wlr_scene_node_set_enabled(&ws->layers.tiling->node, false);
+	wlr_scene_node_set_enabled(&ws->layers.fullscreen->node, false);
+	for (int i = 0; i < ws->current.floating->length; i++) {
+		struct sway_container *floater = ws->current.floating->items[i];
+		wlr_scene_node_set_enabled(&floater->scene_tree->node, false);
+	}
 }
 
 /* Compensate for scene-graph reparenting by computing the drift between
@@ -729,7 +771,6 @@ static void arrange_container(struct sway_container *con,
 	} else {
 		// move animation
 		snap_animation_position(con);
-
 		con->animation_state.from_width = con->animation_state.current_width;
 		con->animation_state.from_height = con->animation_state.current_height;
 		con->animation_state.from_alpha = get_animated_value(con->animation_state.from_alpha,
@@ -847,18 +888,49 @@ static void disable_workspace(struct sway_workspace *ws) {
 }
 
 static void arrange_output(struct sway_output *output, int width, int height) {
+	struct sway_workspace *new_active = output->current.active_workspace;
+	struct sway_workspace *old_active = output->prev_active_workspace;
+
+	bool is_ws_switch = old_active && old_active != new_active
+		&& output->wlr_output->enabled && config->animation_duration_ms > 0 &&
+		!(old_active->current.fullscreen || new_active->current.fullscreen);
+
+	if (is_ws_switch) {
+		int prev_ws_index = list_find(output->current.workspaces, old_active);
+		int new_ws_index = list_find(output->current.workspaces, new_active);
+		bool slide_left = prev_ws_index < new_ws_index;
+
+		int old_base_x = old_active->current_gaps.left + output->usable_area.x;
+		int old_offset = old_active->layers.tiling->node.x - old_base_x;
+		int new_base_x = new_active->current_gaps.left + output->usable_area.x;
+		int new_offset = new_active->layers.tiling->node.x - new_base_x;
+
+		old_active->animation_state.slide_x_from = old_offset;
+		old_active->animation_state.slide_x_to = slide_left ? -width : width;
+		new_active->animation_state.slide_x_from = new_offset != 0
+			? new_offset : (slide_left ? width : -width);
+		new_active->animation_state.slide_x_to = 0;
+
+		add_animation(&old_active->animation_state.animation,
+			workspace_slide_update_callback,
+			workspace_slide_complete_callback);
+		add_animation(&new_active->animation_state.animation,
+			workspace_slide_update_callback, NULL);
+	}
+
 	for (int i = 0; i < output->current.workspaces->length; i++) {
 		struct sway_workspace *child = output->current.workspaces->items[i];
 
 		bool activated = output->current.active_workspace == child && output->wlr_output->enabled;
+		bool animating = child->animation_state.animation.initialized;
 
 		wlr_scene_node_reparent(&child->layers.tiling->node, output->layers.tiling);
 		wlr_scene_node_reparent(&child->layers.fullscreen->node, output->layers.fullscreen);
 
-		for (int i = 0; i < child->current.floating->length; i++) {
-			struct sway_container *floater = child->current.floating->items[i];
+		for (int ii = 0; ii < child->current.floating->length; ii++) {
+			struct sway_container *floater = child->current.floating->items[ii];
 			wlr_scene_node_reparent(&floater->scene_tree->node, root->layers.floating);
-			wlr_scene_node_set_enabled(&floater->scene_tree->node, activated);
+			wlr_scene_node_set_enabled(&floater->scene_tree->node, activated || animating);
 		}
 
 		if (activated) {
@@ -883,13 +955,58 @@ static void arrange_output(struct sway_output *output, int width, int height) {
 				struct wlr_box *area = &output->usable_area;
 				struct side_gaps *gaps = &child->current_gaps;
 
+				int slide_offset = 0;
+				if (animating) {
+					slide_offset = get_animated_value(
+						child->animation_state.slide_x_from,
+						child->animation_state.slide_x_to,
+						&child->animation_state.animation);
+				}
+
 				wlr_scene_node_set_position(&child->layers.tiling->node,
-					gaps->left + area->x, gaps->top + area->y);
+					gaps->left + area->x + slide_offset, gaps->top + area->y);
 
 				arrange_workspace_tiling(child,
 					area->width - gaps->left - gaps->right,
 					area->height - gaps->top - gaps->bottom);
 				arrange_workspace_floating(child);
+
+				if (animating) {
+					for (int ii = 0; ii < child->current.floating->length; ii++) {
+						struct sway_container *floater =
+							child->current.floating->items[ii];
+						wlr_scene_node_set_position(&floater->scene_tree->node,
+							floater->current.x + slide_offset,
+							floater->current.y);
+					}
+				}
+			}
+		} else if (animating && !activated) {
+			// Workspace sliding out - keep visible with offset
+			struct wlr_box *area = &output->usable_area;
+			struct side_gaps *gaps = &child->current_gaps;
+
+			wlr_scene_node_set_enabled(&child->layers.tiling->node, true);
+			wlr_scene_node_set_enabled(&child->layers.fullscreen->node, false);
+
+			int slide_offset = get_animated_value(
+				child->animation_state.slide_x_from,
+				child->animation_state.slide_x_to,
+				&child->animation_state.animation);
+
+			wlr_scene_node_set_position(&child->layers.tiling->node,
+				gaps->left + area->x + slide_offset, gaps->top + area->y);
+
+			arrange_workspace_tiling(child,
+				area->width - gaps->left - gaps->right,
+				area->height - gaps->top - gaps->bottom);
+
+			for (int ii = 0; ii < child->current.floating->length; ii++) {
+				struct sway_container *floater =
+					child->current.floating->items[ii];
+				wlr_scene_node_set_position(&floater->scene_tree->node,
+					floater->current.x + slide_offset,
+					floater->current.y);
 			}
 		} else {
 			wlr_scene_node_set_enabled(&child->layers.tiling->node, false);
@@ -898,6 +1015,8 @@ static void arrange_output(struct sway_output *output, int width, int height) {
 			disable_workspace(child);
 		}
 	}
+
+	output->prev_active_workspace = new_active;
 }
 
 void arrange_popups(struct wlr_scene_tree *popups) {

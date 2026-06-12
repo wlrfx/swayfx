@@ -7,27 +7,25 @@
 struct sway_container;
 struct sway_server;
 
-// TODO: make animation just a pointer to progress
-// keep multiplier and callback private
-// con can be a generic callback argument pointer
+// TODO: make animation just a pointer to progress, make multiplier and callback private
 struct animation {
 	struct wl_list link;
 	float progress;
-	struct sway_container *con;
+	void *data;
 	float multiplier;
 	bool initialized;
-	void (*update)(struct sway_container *);
-	void (*complete)(struct sway_container *);
+	void (*update)(void *);
+	void (*complete)(void *);
 };
 
 void animation_manager_init(struct sway_server *server);
 
-struct animation init_animation(struct sway_container *con);
+struct animation init_animation(void *data);
 
 void refresh_animation_manager_timing();
 
-void add_animation(struct animation *animation, void (*update_callback)(struct sway_container *),
-	void (*complete_callback)(struct sway_container *));
+void add_animation(struct animation *animation, void (*update_callback)(void *),
+	void (*complete_callback)(void *));
 
 void finish_animation(struct animation *animation);
 
