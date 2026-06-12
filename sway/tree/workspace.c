@@ -90,6 +90,8 @@ struct sway_workspace *workspace_create(struct sway_output *output,
 	ws->tiling = create_list();
 	ws->output_priority = create_list();
 
+	ws->animation_state.animation = init_animation(ws);
+
 	ws->gaps_outer = config->gaps_outer;
 	ws->gaps_inner = config->gaps_inner;
 	if (name) {
@@ -155,6 +157,9 @@ void workspace_destroy(struct sway_workspace *workspace) {
 	list_free(workspace->tiling);
 	list_free(workspace->current.floating);
 	list_free(workspace->current.tiling);
+	if (workspace->animation_state.animation.initialized) {
+		finish_animation(&workspace->animation_state.animation);
+	}
 	free(workspace);
 }
 

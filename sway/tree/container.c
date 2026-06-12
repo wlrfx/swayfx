@@ -573,8 +573,7 @@ void container_destroy(struct sway_container *con) {
 	}
 
 	if (con->animation_state.animation.initialized) {
-		con->animation_state.animation.initialized = false;
-		wl_list_remove(&con->animation_state.animation.link);
+		finish_animation(&con->animation_state.animation);
 	}
 
 	free(con->title);

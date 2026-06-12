@@ -145,6 +145,7 @@ struct sway_output *output_create(struct wlr_output *wlr_output) {
 
 	output->workspaces = create_list();
 	output->current.workspaces = create_list();
+	output->prev_active_workspace = NULL;
 
 	return output;
 }

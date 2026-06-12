@@ -3,6 +3,7 @@
 
 #include <scenefx/types/wlr_scene.h>
 #include <stdbool.h>
+#include "sway/animation_manager.h"
 #include "sway/config.h"
 #include "sway/tree/container.h"
 #include "sway/tree/node.h"
@@ -51,6 +52,12 @@ struct sway_workspace {
 	bool urgent;
 
 	struct sway_workspace_state current;
+
+	struct {
+		struct animation animation;
+		int slide_x_from;
+		int slide_x_to;
+	} animation_state;
 };
 
 struct workspace_config *workspace_find_config(const char *ws_name);
