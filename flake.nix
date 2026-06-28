@@ -50,8 +50,8 @@
               librsvg
               wayland-protocols
               libdrm
-              xorg.xcbutilwm
-              wlroots_0_19
+              libxcb-wm
+              wlroots_0_20
             ] ++ [ scenefx-git ];
           });
 

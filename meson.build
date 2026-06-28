@@ -44,17 +44,17 @@ subproject(
 	'scenefx',
 	required: false,
 )
-scenefx = dependency('scenefx-0.4', fallback: 'scenefx')
+scenefx = dependency('scenefx-0.5', fallback: 'scenefx')
 
 # Execute the wlroots subproject, if any
-wlroots_version = ['>=0.19.0', '<0.20.0']
+wlroots_version = ['>=0.20.0', '<0.21.0']
 subproject(
 	'wlroots',
 	default_options: ['examples=false'],
 	required: false,
 	version: wlroots_version,
 )
-wlroots = dependency('wlroots-0.19', version: wlroots_version, fallback: 'wlroots')
+wlroots = dependency('wlroots-0.20', version: wlroots_version, fallback: 'wlroots')
 wlroots_features = {
 	'xwayland': false,
 	'libinput_backend': false,
