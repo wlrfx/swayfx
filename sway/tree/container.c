@@ -1562,7 +1562,8 @@ void container_add_child(struct sway_container *parent,
 }
 
 void container_detach(struct sway_container *child) {
-	if (child->pending.fullscreen_mode == FULLSCREEN_WORKSPACE) {
+	if (child->pending.fullscreen_mode == FULLSCREEN_WORKSPACE &&
+			child->pending.workspace) {
 		child->pending.workspace->fullscreen = NULL;
 	}
 	if (child->pending.fullscreen_mode == FULLSCREEN_GLOBAL) {
