@@ -662,11 +662,8 @@ static struct cmd_results *cmd_move_workspace(int argc, char **argv) {
 	arrange_output(new_output);
 
 	struct sway_seat *seat = config->handler_context.seat;
-<<<<<<< HEAD
-=======
 	struct sway_node *focus = seat_get_focus_inactive(seat, &workspace->node);
 	seat_set_focus(seat, focus);
->>>>>>> upstream/v1.12
 	seat_consider_warp_to_focus(seat);
 
 	return cmd_results_new(CMD_SUCCESS, NULL);
