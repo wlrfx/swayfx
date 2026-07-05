@@ -6,6 +6,7 @@
 #include <wayland-server-core.h>
 #include <wlr/types/wlr_damage_ring.h>
 #include <wlr/types/wlr_output.h>
+#include <wlr/types/wlr_scene.h>
 #include "config.h"
 #include "sway/tree/node.h"
 #include "sway/tree/view.h"
@@ -54,6 +55,7 @@ struct sway_output {
 
 	bool enabled;
 	list_t *workspaces;
+	struct wl_list layer_surfaces; // sway_layer_surface.link
 
 	struct sway_output_state current;
 
@@ -63,17 +65,16 @@ struct sway_output {
 	struct wl_listener frame;
 	struct wl_listener request_state;
 
-	struct {
-		struct wl_signal disable;
-	} events;
-
 	struct wlr_color_transform *color_transform;
+	struct wlr_ext_workspace_group_handle_v1 *ext_workspace_group;
 
 	struct timespec last_presentation;
 	uint32_t refresh_nsec;
 	int max_render_time; // In milliseconds
 	struct wl_event_source *repaint_timer;
+
 	bool allow_tearing;
+	bool hdr;
 };
 
 struct sway_output_non_desktop {
@@ -134,6 +135,8 @@ struct sway_container *output_find_container(struct sway_output *output,
 		bool (*test)(struct sway_container *con, void *data), void *data);
 
 void output_get_box(struct sway_output *output, struct wlr_box *box);
+
+bool output_supports_hdr(struct wlr_output *output, const char **unsupported_reason_ptr);
 
 enum sway_container_layout output_get_default_layout(
 		struct sway_output *output);

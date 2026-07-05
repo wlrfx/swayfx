@@ -32,12 +32,6 @@
 #include "sway/tree/workspace.h"
 #include "wlr-layer-shell-unstable-v1-protocol.h"
 
-static uint32_t get_current_time_msec(void) {
-	struct timespec now;
-	clock_gettime(CLOCK_MONOTONIC, &now);
-	return now.tv_sec * 1000 + now.tv_nsec / 1000000;
-}
-
 /**
  * Returns the node at the cursor's position. If there is a surface at that
  * location, it is stored in **surface (it may not be a view).
@@ -144,7 +138,7 @@ struct sway_node *node_at_coords(
 }
 
 void cursor_rebase(struct sway_cursor *cursor) {
-	uint32_t time_msec = get_current_time_msec();
+	uint32_t time_msec = get_current_time_in_msec();
 	seatop_rebase(cursor->seat, time_msec);
 }
 
@@ -359,7 +353,7 @@ void dispatch_cursor_button(struct sway_cursor *cursor,
 		struct wlr_input_device *device, uint32_t time_msec, uint32_t button,
 		enum wl_pointer_button_state state) {
 	if (time_msec == 0) {
-		time_msec = get_current_time_msec();
+		time_msec = get_current_time_in_msec();
 	}
 
 	seatop_button(cursor->seat, time_msec, device, button, state);
@@ -584,6 +578,7 @@ static void handle_tablet_tool_position(struct sway_cursor *cursor,
 	} else {
 		wlr_tablet_v2_tablet_tool_notify_proximity_out(tool->tablet_v2_tool);
 		pointer_motion(cursor, time_msec, input_device->wlr_device, dx, dy, dx, dy);
+		wlr_seat_pointer_notify_frame(cursor->seat->wlr_seat);
 	}
 }
 
@@ -649,6 +644,11 @@ static void handle_tool_tip(struct wl_listener *listener, void *data) {
 	cursor_handle_activity_from_device(cursor, &event->tablet->base);
 
 	struct sway_tablet_tool *sway_tool = event->tool->data;
+	if (!sway_tool) {
+		sway_log(SWAY_DEBUG, "tool tip before proximity");
+		return;
+	}
+
 	struct wlr_tablet_v2_tablet *tablet_v2 = sway_tool->tablet->tablet_v2;
 	struct sway_seat *seat = cursor->seat;
 

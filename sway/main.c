@@ -108,18 +108,14 @@ static void log_kernel(void) {
 	pclose(f);
 }
 
-static bool detect_suid(void) {
-	if (geteuid() != 0 && getegid() != 0) {
-		return false;
+static void restore_nofile_limit(void) {
+	if (original_nofile_rlimit.rlim_cur == 0) {
+		return;
 	}
-
-	if (getuid() == geteuid() && getgid() == getegid()) {
-		return false;
+	if (setrlimit(RLIMIT_NOFILE, &original_nofile_rlimit) != 0) {
+		sway_log_errno(SWAY_ERROR, "Failed to restore max open files limit: "
+			"setrlimit(NOFILE) failed");
 	}
-
-	sway_log(SWAY_ERROR, "SUID operation is no longer supported, refusing to start. "
-			"This check will be removed in a future release.");
-	return true;
 }
 
 static void restore_nofile_limit(void) {
@@ -238,7 +234,7 @@ static const char usage[] =
 	"\n";
 
 int main(int argc, char **argv) {
-	static bool verbose = false, debug = false, validate = false;
+	bool verbose = false, debug = false, validate = false, allow_unsupported_gpu = false;
 
 	char *config_path = NULL;
 
@@ -305,6 +301,12 @@ int main(int argc, char **argv) {
 		exit(EXIT_FAILURE);
 	}
 
+	char *unsupported_gpu_env = getenv("SWAY_UNSUPPORTED_GPU");
+	// we let the flag override the environment variable
+	if (!allow_unsupported_gpu && unsupported_gpu_env) {
+		allow_unsupported_gpu = parse_boolean(unsupported_gpu_env, false);
+	}
+
 	// As the 'callback' function for wlr_log is equivalent to that for
 	// sway, we do not need to override it.
 	if (debug) {
@@ -349,8 +351,7 @@ int main(int argc, char **argv) {
 
 	increase_nofile_limit();
 
-	sway_log(SWAY_INFO, "Starting swayfx version " SWAY_VERSION
-			" (based on sway version " SWAY_ORIGINAL_VERSION ")");
+	sway_log(SWAY_INFO, "Starting sway version " SWAY_VERSION);
 
 	if (!server_init(&server)) {
 		return 1;
@@ -394,6 +395,20 @@ int main(int argc, char **argv) {
 		swaynag_show(&config->swaynag_config_errors);
 	}
 
+	struct swaynag_instance nag_gpu = (struct swaynag_instance){
+		.args = "--type error "
+			"--message 'Proprietary GPU drivers are not supported by sway. Do not report issues.' "
+			"--detailed-message",
+		.detailed = true,
+	};
+
+	if (unsupported_gpu_detected && !allow_unsupported_gpu) {
+		swaynag_log(config->swaynag_command, &nag_gpu,
+			"To remove this message, launch sway with --unsupported-gpu "
+			"or set the environment variable SWAY_UNSUPPORTED_GPU=true.");
+		swaynag_show(&nag_gpu);
+	}
+
 	server_run(&server);
 
 shutdown:
@@ -405,6 +420,10 @@ shutdown:
 
 	free(config_path);
 	free_config(config);
+
+	if (nag_gpu.client != NULL) {
+		wl_client_destroy(nag_gpu.client);
+	}
 
 	pango_cairo_font_map_set_default(NULL);
 

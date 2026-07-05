@@ -244,6 +244,9 @@ following properties:
 |- rect
 :  object
 :  The bounds for the output consisting of _x_, _y_, _width_, and _height_
+|- hdr
+:  boolean
+:  Whether HDR is enabled
 
 
 *Example Reply:*
@@ -447,6 +450,10 @@ node and will have the following properties:
 :  string
 :  (Only windows) The instance ID provided by the associated sandbox engine (or
    _null_)
+|- tag
+:  string
+:  (Only windows) For an xdg-shell window, tag of the toplevel, if set.
+   Otherwise, _null_
 |- window
 :  integer
 :  (Only xwayland windows) The X11 window ID for the xwayland window
@@ -826,7 +833,7 @@ node and will have the following properties:
 Retrieve the currently set marks
 
 *REPLY*++
-An array of marks current set. Since each mark can only be set for one
+An array of marks currently set. Since each mark can only be set for one
 container, this is a set so each value is unique and the order is undefined.
 
 *Example Reply:*
@@ -857,13 +864,13 @@ An array of bar IDs, which are strings
 
 *MESSAGE*++
 When sent with a bar ID as the payload, this retrieves the config associated
-with the specified by the bar ID in the payload. This is used by swaybar, but
-could also be used for third party bars
+with the bar ID specified in the payload. This is used by swaybar, but could
+also be used for third-party bars
 
 *REPLY*++
 An object that represents the configuration for the bar with the bar ID sent as
-the payload. The following properties exists and more information about what
-their value mean can be found in *sway-bar*(5):
+the payload. The following properties exist, with more information about their
+values in *sway-bar*(5):
 
 [- *PROPERTY*
 :- *DATA TYPE*
@@ -1064,7 +1071,7 @@ An object containing the following properties:
 ## 8. GET_BINDING_MODES
 
 *MESSAGE*++
-Retrieve the list of binding modes that currently configured
+Retrieve the list of binding modes that are currently configured
 
 *REPLY*++
 An array of strings, with each string being the name of a binding mode. This
@@ -1140,7 +1147,7 @@ Returns the currently active binding mode.
 A single object that contains the property _name_, which is set to the
 currently active binding mode as a string.
 
-*Exact Reply:*
+*Example Reply:*
 ```
 {
 	"name": "default"
@@ -1178,13 +1185,13 @@ following properties:
    _tablet\_tool_, _tablet\_pad_, or _switch_
 |- xkb_active_layout_name
 :  string
-:  (Only keyboards) The name of the active keyboard layout in use
+:  (Only keyboards) The name of the active keyboard layout
 |- xkb_layout_names
 :  array
 :  (Only keyboards) A list a layout names configured for the keyboard
 |- xkb_active_layout_index
 :  integer
-:  (Only keyboards) The index of the active keyboard layout in use
+:  (Only keyboards) The index of the active keyboard layout
 |- scroll_factor
 :  floating
 :  (Only pointers) Multiplier applied on scroll event values.
@@ -1491,7 +1498,7 @@ one seat. Each object has the following properties:
 
 # EVENTS
 
-Events are a way for client to get notified of changes to sway. A client can
+Events are a way for clients to get notified of changes to sway. A client can
 subscribe to any events it wants to be notified of changes for. The event is
 sent in the same format as a reply. The following events are currently
 available:
@@ -1502,7 +1509,7 @@ available:
 |- 0x80000000
 :  workspace
 :[ Sent whenever an event involving a workspace occurs such as initialization
-   of a new workspace or a different workspace gains focus
+   of a new workspace or another workspace gaining focus
 |- 0x80000001
 :  output
 :  Sent when outputs are updated
@@ -1511,7 +1518,7 @@ available:
 :  Sent whenever the binding mode changes
 |- 0x80000003
 :  window
-:  Sent whenever an event involving a window occurs such as being reparented,
+:  Sent whenever an event involving a window occurs such as it being reparented,
    focused, or closed
 |- 0x80000004
 :  barconfig_update
@@ -1527,7 +1534,7 @@ available:
 :  Sent when an ipc client sends a _SEND\_TICK_ message
 |- 0x80000014
 :  bar_state_update
-:  Send when the visibility of a bar should change due to a modifier
+:  Sent when the visibility of a bar should change due to a modifier
 |- 0x80000015
 :  input
 :  Sent when something related to input devices changes
@@ -1546,10 +1553,10 @@ single object with the following properties:
 :[ The type of change that occurred. See below for more information
 |- current
 :  object
-:  An object representing the workspace effected or _null_ for _reload_ changes
+:  An object representing the affected workspace or _null_ for _reload_ changes
 |- old
 :  object
-:  For a _focus_ change, this is will be an object representing the workspace
+:  For a _focus_ change, this will be an object representing the workspace
    being switched from. Otherwise, it is _null_
 
 
@@ -1567,7 +1574,7 @@ The following change types are currently available:
 |- rename
 :  The workspace was renamed
 |- urgent
-:  A window on the workspace has had their urgency hint set or all urgency hints
+:  A window on the workspace has had its urgency hint set or all urgency hints
    for windows on the workspace have been cleared
 |- reload
 :  The configuration file has been reloaded
@@ -1677,7 +1684,7 @@ object with the following properties:
 :[ The type of change that occurred. See below for more information
 |- container
 :  object
-:  An object representing the window effected
+:  An object representing the affected window
 
 
 The following change types are currently available:
@@ -1840,7 +1847,7 @@ event is a single object with the following properties:
 :  Whether this event was triggered by subscribing to the tick events
 |- payload
 :  string
-:  The payload given with a _SEND\_TICK_ message, if any. Otherwise, an empty
+:  The payload provided in a _SEND\_TICK_ message, if any. Otherwise, an empty
    string
 
 
@@ -1862,7 +1869,7 @@ event is a single object with the following properties:
 :- *DESCRIPTION*
 |- id
 :  string
-:[ The bar ID effected
+:[ The bar ID affected
 |- visible_by_modifier
 :  boolean
 :  Whether the bar should be made visible due to a modifier being pressed
@@ -1878,7 +1885,7 @@ event is a single object with the following properties:
 
 ## 0x80000015. INPUT
 
-Sent when something related to the input devices changes. The event is a single
+Sent when something related to input devices changes. The event is a single
 object with the following properties:
 
 [- *PROPERTY*
@@ -1889,7 +1896,7 @@ object with the following properties:
 :[ What has changed
 |- input
 :  object
-:  An object representing the input that is identical the ones GET_INPUTS gives
+:  An object representing the input that is identical to the ones GET_INPUTS gives
 
 The following change types are currently available:
 [- *TYPE*

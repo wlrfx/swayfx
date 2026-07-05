@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <wayland-server-core.h>
 #include <wlr/types/wlr_xdg_shell.h>
+#include <wlr/types/wlr_xdg_toplevel_tag_v1.h>
 #include <wlr/util/edges.h>
 #include "log.h"
 #include "sway/decoration.h"
@@ -20,13 +21,13 @@
 
 static struct sway_xdg_popup *popup_create(
 	struct wlr_xdg_popup *wlr_popup, struct sway_view *view,
-	struct wlr_scene_tree *parent);
+	struct wlr_scene_tree *parent, struct wlr_scene_tree *image_capture_parent);
 
 static void popup_handle_new_popup(struct wl_listener *listener, void *data) {
 	struct sway_xdg_popup *popup =
 		wl_container_of(listener, popup, new_popup);
 	struct wlr_xdg_popup *wlr_popup = data;
-	popup_create(wlr_popup, popup->view, popup->xdg_surface_tree);
+	popup_create(wlr_popup, popup->view, popup->xdg_surface_tree, popup->image_capture_tree);
 }
 
 static void popup_handle_destroy(struct wl_listener *listener, void *data) {
@@ -77,7 +78,8 @@ static void popup_handle_reposition(struct wl_listener *listener, void *data) {
 }
 
 static struct sway_xdg_popup *popup_create(struct wlr_xdg_popup *wlr_popup,
-		struct sway_view *view, struct wlr_scene_tree *parent) {
+		struct sway_view *view, struct wlr_scene_tree *parent,
+		struct wlr_scene_tree *image_capture_parent) {
 	struct wlr_xdg_surface *xdg_surface = wlr_popup->base;
 
 	struct sway_xdg_popup *popup = calloc(1, sizeof(struct sway_xdg_popup));
@@ -110,6 +112,11 @@ static struct sway_xdg_popup *popup_create(struct wlr_xdg_popup *wlr_popup,
 		sway_log(SWAY_ERROR, "Failed to allocate a popup scene descriptor");
 		wlr_scene_node_destroy(&popup->scene_tree->node);
 		free(popup);
+		return NULL;
+	}
+
+	popup->image_capture_tree = wlr_scene_xdg_surface_create(image_capture_parent, xdg_surface);
+	if (popup->image_capture_tree == NULL) {
 		return NULL;
 	}
 
@@ -151,7 +158,8 @@ static void get_constraints(struct sway_view *view, double *min_width,
 
 static const char *get_string_prop(struct sway_view *view,
 		enum sway_view_prop prop) {
-	if (xdg_shell_view_from_view(view) == NULL) {
+	struct sway_xdg_shell_view *xdg_shell_view = xdg_shell_view_from_view(view);
+	if (xdg_shell_view == NULL) {
 		return NULL;
 	}
 	switch (prop) {
@@ -159,6 +167,8 @@ static const char *get_string_prop(struct sway_view *view,
 		return view->wlr_xdg_toplevel->title;
 	case VIEW_PROP_APP_ID:
 		return view->wlr_xdg_toplevel->app_id;
+	case VIEW_PROP_TAG:
+		return xdg_shell_view->tag;
 	default:
 		return NULL;
 	}
@@ -259,6 +269,7 @@ static void destroy(struct sway_view *view) {
 	if (xdg_shell_view == NULL) {
 		return;
 	}
+	free(xdg_shell_view->tag);
 	free(xdg_shell_view);
 }
 
@@ -290,7 +301,7 @@ static void handle_commit(struct wl_listener *listener, void *data) {
 		// XXX: https://github.com/swaywm/sway/issues/2176
 		wlr_xdg_surface_schedule_configure(xdg_surface);
 		wlr_xdg_toplevel_set_wm_capabilities(view->wlr_xdg_toplevel,
-			XDG_TOPLEVEL_WM_CAPABILITIES_FULLSCREEN);
+			WLR_XDG_TOPLEVEL_WM_CAPABILITIES_FULLSCREEN);
 		// TODO: wlr_xdg_toplevel_set_bounds()
 		return;
 	}
@@ -343,6 +354,7 @@ static void handle_set_title(struct wl_listener *listener, void *data) {
 	struct sway_view *view = &xdg_shell_view->view;
 	view_update_title(view, false);
 	view_execute_criteria(view);
+	transaction_commit_dirty();
 }
 
 static void handle_set_app_id(struct wl_listener *listener, void *data) {
@@ -351,6 +363,7 @@ static void handle_set_app_id(struct wl_listener *listener, void *data) {
 	struct sway_view *view = &xdg_shell_view->view;
 	view_update_app_id(view);
 	view_execute_criteria(view);
+	transaction_commit_dirty();
 }
 
 static void handle_new_popup(struct wl_listener *listener, void *data) {
@@ -359,7 +372,7 @@ static void handle_new_popup(struct wl_listener *listener, void *data) {
 	struct wlr_xdg_popup *wlr_popup = data;
 
 	struct sway_xdg_popup *popup = popup_create(wlr_popup,
-		&xdg_shell_view->view, root->layers.popup);
+		&xdg_shell_view->view, root->layers.popup, xdg_shell_view->image_capture_tree);
 	if (!popup) {
 		return;
 	}
@@ -373,6 +386,9 @@ static void handle_request_maximize(struct wl_listener *listener, void *data) {
 	struct sway_xdg_shell_view *xdg_shell_view =
 		wl_container_of(listener, xdg_shell_view, request_maximize);
 	struct wlr_xdg_toplevel *toplevel = xdg_shell_view->view.wlr_xdg_toplevel;
+	if (!toplevel->base->surface->mapped) {
+		return;
+	}
 	wlr_xdg_surface_schedule_configure(toplevel->base);
 }
 
@@ -596,6 +612,18 @@ void handle_xdg_shell_toplevel(struct wl_listener *listener, void *data) {
 	wl_signal_add(&xdg_toplevel->events.destroy, &xdg_shell_view->destroy);
 
 	wlr_scene_xdg_surface_create(xdg_shell_view->view.content_tree, xdg_toplevel->base);
+	xdg_shell_view->image_capture_tree =
+		wlr_scene_xdg_surface_create(&xdg_shell_view->view.image_capture_scene->tree, xdg_toplevel->base);
 
 	xdg_toplevel->base->data = xdg_shell_view;
+}
+
+void xdg_toplevel_tag_manager_v1_handle_set_tag(struct wl_listener *listener, void *data) {
+	const struct wlr_xdg_toplevel_tag_manager_v1_set_tag_event *event = data;
+	struct sway_view *view = view_from_wlr_xdg_surface(event->toplevel->base);
+	struct sway_xdg_shell_view *xdg_shell_view = xdg_shell_view_from_view(view);
+	free(xdg_shell_view->tag);
+	xdg_shell_view->tag = strdup(event->tag);
+	view_execute_criteria(view);
+	transaction_commit_dirty();
 }

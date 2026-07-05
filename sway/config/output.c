@@ -75,10 +75,11 @@ struct output_config *new_output_config(const char *name) {
 	oc->max_render_time = -1;
 	oc->adaptive_sync = -1;
 	oc->render_bit_depth = RENDER_BIT_DEPTH_DEFAULT;
-	oc->set_color_transform = false;
+	oc->color_profile = COLOR_PROFILE_DEFAULT;
 	oc->color_transform = NULL;
 	oc->power = -1;
 	oc->allow_tearing = -1;
+	oc->hdr = -1;
 	return oc;
 }
 
@@ -129,12 +130,12 @@ static void supersede_output_config(struct output_config *dst, struct output_con
 	if (src->render_bit_depth != RENDER_BIT_DEPTH_DEFAULT) {
 		dst->render_bit_depth = RENDER_BIT_DEPTH_DEFAULT;
 	}
-	if (src->set_color_transform) {
+	if (src->color_profile != COLOR_PROFILE_DEFAULT) {
 		if (dst->color_transform) {
 			wlr_color_transform_unref(dst->color_transform);
 			dst->color_transform = NULL;
 		}
-		dst->set_color_transform = false;
+		dst->color_profile = COLOR_PROFILE_DEFAULT;
 	}
 	if (src->background) {
 		free(dst->background);
@@ -153,6 +154,9 @@ static void supersede_output_config(struct output_config *dst, struct output_con
 	}
 	if (src->allow_tearing != -1) {
 		dst->allow_tearing = -1;
+	}
+	if (src->hdr != -1) {
+		dst->hdr = -1;
 	}
 }
 
@@ -203,12 +207,12 @@ static void merge_output_config(struct output_config *dst, struct output_config 
 	if (src->render_bit_depth != RENDER_BIT_DEPTH_DEFAULT) {
 		dst->render_bit_depth = src->render_bit_depth;
 	}
-	if (src->set_color_transform) {
+	if (src->color_profile != COLOR_PROFILE_DEFAULT) {
 		if (src->color_transform) {
 			wlr_color_transform_ref(src->color_transform);
 		}
 		wlr_color_transform_unref(dst->color_transform);
-		dst->set_color_transform = true;
+		dst->color_profile = src->color_profile;
 		dst->color_transform = src->color_transform;
 	}
 	if (src->background) {
@@ -228,6 +232,9 @@ static void merge_output_config(struct output_config *dst, struct output_config 
 	}
 	if (src->allow_tearing != -1) {
 		dst->allow_tearing = src->allow_tearing;
+	}
+	if (src->hdr != -1) {
+		dst->hdr = src->hdr;
 	}
 }
 
@@ -271,11 +278,11 @@ void store_output_config(struct output_config *oc) {
 
 	sway_log(SWAY_DEBUG, "Config stored for output %s (enabled: %d) (%dx%d@%fHz "
 		"position %d,%d scale %f subpixel %s transform %d) (bg %s %s) (power %d) "
-		"(max render time: %d) (allow tearing: %d)",
+		"(max render time: %d) (allow tearing: %d) (hdr: %d)",
 		oc->name, oc->enabled, oc->width, oc->height, oc->refresh_rate,
 		oc->x, oc->y, oc->scale, sway_wl_output_subpixel_to_string(oc->subpixel),
 		oc->transform, oc->background, oc->background_option, oc->power,
-		oc->max_render_time, oc->allow_tearing);
+		oc->max_render_time, oc->allow_tearing, oc->hdr);
 
 	// If the configuration was not merged into an existing configuration, add
 	// it to the list. Otherwise we're done with it and can free it.
@@ -339,6 +346,45 @@ static void set_modeline(struct wlr_output *output,
 #else
 	sway_log(SWAY_ERROR, "Modeline can only be set to DRM output");
 #endif
+}
+
+bool output_supports_hdr(struct wlr_output *output, const char **unsupported_reason_ptr) {
+	const char *unsupported_reason = NULL;
+	if (!(output->supported_primaries & WLR_COLOR_NAMED_PRIMARIES_BT2020)) {
+		unsupported_reason = "BT2020 primaries not supported by output";
+	} else if (!(output->supported_transfer_functions & WLR_COLOR_TRANSFER_FUNCTION_ST2084_PQ)) {
+		unsupported_reason = "PQ transfer function not supported by output";
+	} else if (!server.renderer->features.output_color_transform) {
+		unsupported_reason = "renderer doesn't support output color transforms";
+	}
+	if (unsupported_reason_ptr != NULL) {
+		*unsupported_reason_ptr = unsupported_reason;
+	}
+	return unsupported_reason == NULL;
+}
+
+static void set_hdr(struct wlr_output *output, struct wlr_output_state *pending, bool enabled) {
+	const char *unsupported_reason = NULL;
+	if (enabled && !output_supports_hdr(output, &unsupported_reason)) {
+		sway_log(SWAY_ERROR, "Cannot enable HDR on output %s: %s",
+			output->name, unsupported_reason);
+		enabled = false;
+	}
+
+	if (!enabled) {
+		if (output->supported_primaries != 0 || output->supported_transfer_functions != 0) {
+			sway_log(SWAY_DEBUG, "Disabling HDR on output %s", output->name);
+			wlr_output_state_set_image_description(pending, NULL);
+		}
+		return;
+	}
+
+	sway_log(SWAY_DEBUG, "Enabling HDR on output %s", output->name);
+	const struct wlr_output_image_description image_desc = {
+		.primaries = WLR_COLOR_NAMED_PRIMARIES_BT2020,
+		.transfer_function = WLR_COLOR_TRANSFER_FUNCTION_ST2084_PQ,
+	};
+	wlr_output_state_set_image_description(pending, &image_desc);
 }
 
 /* Some manufacturers hardcode the aspect-ratio of the output in the physical
@@ -415,6 +461,16 @@ static enum render_bit_depth bit_depth_from_format(uint32_t render_format) {
 	return RENDER_BIT_DEPTH_DEFAULT;
 }
 
+static enum render_bit_depth get_config_render_bit_depth(const struct output_config *oc) {
+	if (oc && oc->render_bit_depth != RENDER_BIT_DEPTH_DEFAULT) {
+		return oc->render_bit_depth;
+	}
+	if (oc && oc->hdr == 1) {
+		return RENDER_BIT_DEPTH_10;
+	}
+	return RENDER_BIT_DEPTH_8;
+}
+
 static bool render_format_is_bgr(uint32_t fmt) {
 	return fmt == DRM_FORMAT_XBGR2101010 || fmt == DRM_FORMAT_XBGR8888;
 }
@@ -483,26 +539,102 @@ static void queue_output_config(struct output_config *oc,
 		} else {
 			wlr_output_state_set_adaptive_sync_enabled(pending, false);
 		}
-	}
-
-	if (oc && oc->render_bit_depth != RENDER_BIT_DEPTH_DEFAULT) {
-		if (oc->render_bit_depth == RENDER_BIT_DEPTH_10 &&
-			bit_depth_from_format(output->wlr_output->render_format) == oc->render_bit_depth) {
-			// 10-bit was set successfully before, try to save some tests by reusing the format
-			wlr_output_state_set_render_format(pending, output->wlr_output->render_format);
-		} else if (oc->render_bit_depth == RENDER_BIT_DEPTH_10) {
-			wlr_output_state_set_render_format(pending, DRM_FORMAT_XRGB2101010);
-		} else if (oc->render_bit_depth == RENDER_BIT_DEPTH_6){
-			wlr_output_state_set_render_format(pending, DRM_FORMAT_RGB565);
-		} else {
-			wlr_output_state_set_render_format(pending, DRM_FORMAT_XRGB8888);
-		}
 	} else {
 		wlr_output_state_set_render_format(pending, DRM_FORMAT_XRGB8888);
 	}
+
+	enum render_bit_depth render_bit_depth = get_config_render_bit_depth(oc);
+	if (render_bit_depth == RENDER_BIT_DEPTH_10 &&
+			bit_depth_from_format(output->wlr_output->render_format) == render_bit_depth) {
+		// 10-bit was set successfully before, try to save some tests by reusing the format
+		wlr_output_state_set_render_format(pending, output->wlr_output->render_format);
+	} else if (render_bit_depth == RENDER_BIT_DEPTH_10) {
+		wlr_output_state_set_render_format(pending, DRM_FORMAT_XRGB2101010);
+	} else if (render_bit_depth == RENDER_BIT_DEPTH_6) {
+		wlr_output_state_set_render_format(pending, DRM_FORMAT_RGB565);
+	} else {
+		wlr_output_state_set_render_format(pending, DRM_FORMAT_XRGB8888);
+	}
+
+	bool hdr = oc && oc->hdr == 1;
+	bool color_profile = oc && (oc->color_transform != NULL
+		|| oc->color_profile == COLOR_PROFILE_TRANSFORM_WITH_DEVICE_PRIMARIES);
+	if (hdr && color_profile) {
+		sway_log(SWAY_ERROR, "Cannot use HDR on output %s: output has a color profile set", wlr_output->name);
+		hdr = false;
+	}
+	set_hdr(wlr_output, pending, hdr);
 }
 
-static bool finalize_output_config(struct output_config *oc, struct sway_output *output) {
+struct config_output_state {
+	struct wlr_color_transform *color_transform;
+};
+
+static void config_output_state_finish(struct config_output_state *state) {
+	wlr_color_transform_unref(state->color_transform);
+}
+
+static struct wlr_color_transform *color_profile_from_device(struct wlr_output *wlr_output,
+		struct wlr_color_transform *transfer_function) {
+	struct wlr_color_primaries srgb_primaries;
+	wlr_color_primaries_from_named(&srgb_primaries, WLR_COLOR_NAMED_PRIMARIES_SRGB);
+
+	const struct wlr_color_primaries *primaries = wlr_output->default_primaries;
+	if (primaries == NULL) {
+		sway_log(SWAY_INFO, "output has no reported color information");
+		if (transfer_function) {
+			wlr_color_transform_ref(transfer_function);
+		}
+		return transfer_function;
+	} else if (memcmp(primaries, &srgb_primaries, sizeof(*primaries)) == 0) {
+		sway_log(SWAY_INFO, "output reports sRGB colors, no correction needed");
+		if (transfer_function) {
+			wlr_color_transform_ref(transfer_function);
+		}
+		return transfer_function;
+	} else {
+		sway_log(SWAY_INFO, "Creating color profile from reported color primaries: "
+				"R(%f, %f) G(%f, %f) B(%f, %f) W(%f, %f)",
+			primaries->red.x, primaries->red.y, primaries->green.x, primaries->green.y,
+			primaries->blue.x, primaries->blue.y, primaries->white.x, primaries->white.y);
+		float matrix[9];
+		wlr_color_primaries_transform_absolute_colorimetric(&srgb_primaries, primaries, matrix);
+		struct wlr_color_transform *matrix_transform = wlr_color_transform_init_matrix(matrix);
+		if (matrix_transform == NULL) {
+			return NULL;
+		}
+		struct wlr_color_transform *resolved_tf = transfer_function ?
+			wlr_color_transform_ref(transfer_function) :
+			wlr_color_transform_init_linear_to_inverse_eotf(WLR_COLOR_TRANSFER_FUNCTION_GAMMA22);
+		if (resolved_tf == NULL) {
+			wlr_color_transform_unref(matrix_transform);
+			return NULL;
+		}
+		struct wlr_color_transform *transforms[] = { matrix_transform, resolved_tf };
+		size_t transforms_len = sizeof(transforms) / sizeof(transforms[0]);
+		struct wlr_color_transform *result = wlr_color_transform_init_pipeline(transforms, transforms_len);
+		wlr_color_transform_unref(matrix_transform);
+		wlr_color_transform_unref(resolved_tf);
+		return result;
+	}
+}
+
+static struct wlr_color_transform *get_color_profile(struct wlr_output *output,
+		struct output_config *oc) {
+	if (oc && oc->color_profile == COLOR_PROFILE_TRANSFORM) {
+		if (oc->color_transform) {
+			wlr_color_transform_ref(oc->color_transform);
+		}
+		return oc->color_transform;
+	} else if (oc && oc->color_profile == COLOR_PROFILE_TRANSFORM_WITH_DEVICE_PRIMARIES) {
+		return color_profile_from_device(output, oc->color_transform);
+	} else {
+		return NULL;
+	}
+}
+
+static bool finalize_output_config(struct output_config *oc, struct sway_output *output,
+		const struct wlr_output_state *applied, const struct config_output_state *config_applied) {
 	if (output == root->fallback_output) {
 		return false;
 	}
@@ -548,16 +680,432 @@ static bool finalize_output_config(struct output_config *oc, struct sway_output 
 		output_enable(output);
 	}
 
-	if (oc && oc->set_color_transform) {
-		if (oc->color_transform) {
-			wlr_color_transform_ref(oc->color_transform);
-		}
-		wlr_color_transform_unref(output->color_transform);
-		output->color_transform = oc->color_transform;
-	} else {
-		wlr_color_transform_unref(output->color_transform);
-		output->color_transform = NULL;
+	wlr_color_transform_unref(output->color_transform);
+	if (config_applied->color_transform != NULL) {
+		wlr_color_transform_ref(config_applied->color_transform);
 	}
+	output->color_transform = config_applied->color_transform;
+
+	output->max_render_time = oc && oc->max_render_time > 0 ? oc->max_render_time : 0;
+	output->allow_tearing = oc && oc->allow_tearing > 0;
+	output->hdr = applied->image_description != NULL;
+
+	return true;
+}
+
+static void output_update_position(struct sway_output *output) {
+	struct wlr_box output_box;
+	wlr_output_layout_get_box(root->output_layout, output->wlr_output, &output_box);
+	output->lx = output_box.x;
+	output->ly = output_box.y;
+	output->width = output_box.width;
+	output->height = output_box.height;
+}
+
+// find_output_config_from_list returns a merged output_config containing all
+// stored configuration that applies to the specified output.
+static struct output_config *find_output_config_from_list(
+		struct output_config **configs, size_t configs_len,
+		struct sway_output *sway_output) {
+	const char *name = sway_output->wlr_output->name;
+	struct output_config *result = new_output_config(name);
+	if (result == NULL) {
+		return NULL;
+	}
+
+	char id[128];
+	output_get_identifier(id, sizeof(id), sway_output);
+
+	// We take a new config and merge on top, in order, the wildcard config,
+	// output config by name, and output config by identifier to form the final
+	// config. If there are multiple matches, they are merged in order.
+	struct output_config *oc = NULL;
+	const char *names[] = {"*", name, id, NULL};
+	for (const char **name = &names[0]; *name; name++) {
+		for (size_t idx = 0; idx < configs_len; idx++) {
+			oc = configs[idx];
+			if (strcmp(oc->name, *name) == 0) {
+				merge_output_config(result, oc);
+			}
+		}
+	}
+
+	return result;
+}
+
+struct output_config *find_output_config(struct sway_output *sway_output) {
+	return find_output_config_from_list(
+			(struct output_config **)config->output_configs->items,
+			config->output_configs->length, sway_output);
+}
+
+static bool config_has_manual_mode(struct output_config *oc) {
+	if (!oc) {
+		return false;
+	}
+	if (oc->drm_mode.type != 0 && oc->drm_mode.type != (uint32_t)-1) {
+		return true;
+	} else if (oc->width > 0 && oc->height > 0) {
+		return true;
+	}
+	return false;
+}
+
+/**
+ * An output config pre-matched to an output
+ */
+struct matched_output_config {
+	struct sway_output *output;
+	struct output_config *config;
+};
+
+struct search_context {
+	struct wlr_output_swapchain_manager *swapchain_mgr;
+	struct wlr_backend_output_state *states;
+	struct matched_output_config *configs;
+	size_t configs_len;
+	bool degrade_to_off;
+};
+
+static void dump_output_state(struct wlr_output *wlr_output, struct wlr_output_state *state) {
+	sway_log(SWAY_DEBUG, "Output state for %s", wlr_output->name);
+	if (state->committed & WLR_OUTPUT_STATE_ENABLED) {
+		sway_log(SWAY_DEBUG, "    enabled:       %s", state->enabled ? "yes" : "no");
+	}
+	if (state->committed & WLR_OUTPUT_STATE_RENDER_FORMAT) {
+		char *format_name = drmGetFormatName(state->render_format);
+		sway_log(SWAY_DEBUG, "    render_format: %s", format_name);
+		free(format_name);
+	}
+	if (state->committed & WLR_OUTPUT_STATE_MODE) {
+		if (state->mode_type == WLR_OUTPUT_STATE_MODE_CUSTOM) {
+			sway_log(SWAY_DEBUG, "    custom mode:   %dx%d@%dmHz",
+				state->custom_mode.width, state->custom_mode.height, state->custom_mode.refresh);
+		} else {
+			sway_log(SWAY_DEBUG, "    mode:          %dx%d@%dmHz%s",
+				state->mode->width, state->mode->height, state->mode->refresh,
+				state->mode->preferred ? " (preferred)" : "");
+		}
+	}
+	if (state->committed & WLR_OUTPUT_STATE_ADAPTIVE_SYNC_ENABLED) {
+		sway_log(SWAY_DEBUG, "    adaptive_sync: %s",
+			state->adaptive_sync_enabled ? "enabled": "disabled");
+	}
+	if (state->committed & WLR_OUTPUT_STATE_SCALE) {
+		sway_log(SWAY_DEBUG, "    scale:         %f", state->scale);
+	}
+	if (state->committed & WLR_OUTPUT_STATE_SUBPIXEL) {
+		sway_log(SWAY_DEBUG, "    subpixel:      %s",
+			sway_wl_output_subpixel_to_string(state->subpixel));
+	}
+}
+
+static bool search_valid_config(struct search_context *ctx, size_t output_idx);
+
+static void reset_output_state(struct wlr_output_state *state) {
+	wlr_output_state_finish(state);
+	wlr_output_state_init(state);
+	state->committed = 0;
+}
+
+static void clear_later_output_states(struct wlr_backend_output_state *states,
+		size_t configs_len, size_t output_idx) {
+
+	// Clear and disable all output states after this one to avoid conflict
+	// with previous tests.
+	for (size_t idx = output_idx+1; idx < configs_len; idx++) {
+		struct wlr_backend_output_state *backend_state = &states[idx];
+		struct wlr_output_state *state = &backend_state->base;
+
+		reset_output_state(state);
+		wlr_output_state_set_enabled(state, false);
+	}
+}
+
+static bool search_finish(struct search_context *ctx, size_t output_idx) {
+	struct wlr_backend_output_state *backend_state = &ctx->states[output_idx];
+	struct wlr_output_state *state = &backend_state->base;
+	struct wlr_output *wlr_output = backend_state->output;
+
+	clear_later_output_states(ctx->states, ctx->configs_len, output_idx);
+	dump_output_state(wlr_output, state);
+	return wlr_output_swapchain_manager_prepare(ctx->swapchain_mgr, ctx->states, ctx->configs_len) &&
+		search_valid_config(ctx, output_idx+1);
+}
+
+static bool search_adaptive_sync(struct search_context *ctx, size_t output_idx) {
+	struct matched_output_config *cfg = &ctx->configs[output_idx];
+	struct wlr_backend_output_state *backend_state = &ctx->states[output_idx];
+	struct wlr_output_state *state = &backend_state->base;
+
+	if (!backend_state->output->adaptive_sync_supported) {
+		return search_finish(ctx, output_idx);
+	}
+
+	if (cfg->config && cfg->config->adaptive_sync == 1) {
+		wlr_output_state_set_adaptive_sync_enabled(state, true);
+		if (search_finish(ctx, output_idx)) {
+			return true;
+		}
+	}
+
+	wlr_output_state_set_adaptive_sync_enabled(state, false);
+	return search_finish(ctx, output_idx);
+}
+
+static bool search_mode(struct search_context *ctx, size_t output_idx) {
+	struct matched_output_config *cfg = &ctx->configs[output_idx];
+	struct wlr_backend_output_state *backend_state = &ctx->states[output_idx];
+	struct wlr_output_state *state = &backend_state->base;
+	struct wlr_output *wlr_output = backend_state->output;
+
+	// We only search for mode if one is not explicitly specified in the config
+	if (config_has_manual_mode(cfg->config)) {
+		return search_adaptive_sync(ctx, output_idx);
+	}
+
+	struct wlr_output_mode *preferred_mode = wlr_output_preferred_mode(wlr_output);
+	if (preferred_mode) {
+		wlr_output_state_set_mode(state, preferred_mode);
+		if (search_adaptive_sync(ctx, output_idx)) {
+			return true;
+		}
+	}
+
+	if (wl_list_empty(&wlr_output->modes)) {
+		state->committed &= ~WLR_OUTPUT_STATE_MODE;
+		return search_adaptive_sync(ctx, output_idx);
+	}
+
+	struct wlr_output_mode *mode;
+	wl_list_for_each(mode, &backend_state->output->modes, link) {
+		if (mode == preferred_mode) {
+			continue;
+		}
+		wlr_output_state_set_mode(state, mode);
+		if (search_adaptive_sync(ctx, output_idx)) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static bool search_render_format(struct search_context *ctx, size_t output_idx) {
+	struct matched_output_config *cfg = &ctx->configs[output_idx];
+	struct wlr_backend_output_state *backend_state = &ctx->states[output_idx];
+	struct wlr_output_state *state = &backend_state->base;
+	struct wlr_output *wlr_output = backend_state->output;
+
+	uint32_t fmts[] = {
+		DRM_FORMAT_XRGB2101010,
+		DRM_FORMAT_XBGR2101010,
+		DRM_FORMAT_XRGB8888,
+		DRM_FORMAT_ARGB8888,
+		DRM_FORMAT_RGB565,
+		DRM_FORMAT_INVALID,
+	};
+	if (render_format_is_bgr(wlr_output->render_format)) {
+		// Start with BGR in the unlikely event that we previously required it.
+		fmts[0] = DRM_FORMAT_XBGR2101010;
+		fmts[1] = DRM_FORMAT_XRGB2101010;
+	}
+
+	const struct wlr_drm_format_set *primary_formats =
+		wlr_output_get_primary_formats(wlr_output, server.allocator->buffer_caps);
+	enum render_bit_depth needed_bits = get_config_render_bit_depth(cfg->config);
+	for (size_t idx = 0; fmts[idx] != DRM_FORMAT_INVALID; idx++) {
+		enum render_bit_depth format_bits = bit_depth_from_format(fmts[idx]);
+		if (needed_bits < format_bits) {
+			continue;
+		}
+		// If primary_formats is NULL, all formats are supported
+		if (primary_formats && !wlr_drm_format_set_get(primary_formats, fmts[idx])) {
+			// This is not a supported format for this output
+			continue;
+		}
+		wlr_output_state_set_render_format(state, fmts[idx]);
+		if (search_mode(ctx, output_idx)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+static bool search_valid_config(struct search_context *ctx, size_t output_idx) {
+	if (output_idx >= ctx->configs_len) {
+		// We reached the end of the search, all good!
+		return true;
+	}
+
+	struct matched_output_config *cfg = &ctx->configs[output_idx];
+	struct wlr_backend_output_state *backend_state = &ctx->states[output_idx];
+	struct wlr_output_state *state = &backend_state->base;
+	struct wlr_output *wlr_output = backend_state->output;
+
+	if (!output_config_is_disabling(cfg->config)) {
+		// Search through our possible configurations, doing a depth-first
+		// through render_format, modes, adaptive_sync and the next output's
+		// config.
+		queue_output_config(cfg->config, cfg->output, &backend_state->base);
+		if (search_render_format(ctx, output_idx)) {
+			return true;
+		} else if (!ctx->degrade_to_off) {
+			return false;
+		}
+		// We could not get anything to work, try to disable this output to see
+		// if we can at least make the outputs before us work.
+		sway_log(SWAY_DEBUG, "Unable to find valid config with output %s, disabling",
+			wlr_output->name);
+		reset_output_state(state);
+	}
+
+	wlr_output_state_set_enabled(state, false);
+	return search_finish(ctx, output_idx);
+}
+
+static int compare_matched_output_config_priority(const void *a, const void *b) {
+
+	const struct matched_output_config *amc = a;
+	const struct matched_output_config *bmc = b;
+	bool a_disabling = output_config_is_disabling(amc->config);
+	bool b_disabling = output_config_is_disabling(bmc->config);
+	bool a_enabled = amc->output->enabled;
+	bool b_enabled = bmc->output->enabled;
+
+	// We want to give priority to existing enabled outputs. To do so, we want
+	// the configuration order to be:
+	// 1. Existing, enabled outputs
+	// 2. Outputs that need to be enabled
+	// 3. Disabled or disabling outputs
+	if (a_enabled && !a_disabling) {
+		return -1;
+	} else if (b_enabled && !b_disabling) {
+		return 1;
+	} else if (b_disabling && !a_disabling) {
+		return -1;
+	} else if (a_disabling && !b_disabling) {
+		return 1;
+	}
+	return 0;
+}
+
+static void sort_output_configs_by_priority(
+		struct matched_output_config *configs, size_t configs_len) {
+	qsort(configs, configs_len, sizeof(*configs), compare_matched_output_config_priority);
+}
+
+static bool apply_resolved_output_configs(struct matched_output_config *configs,
+		size_t configs_len, bool test_only, bool degrade_to_off) {
+	struct wlr_backend_output_state *states = calloc(configs_len, sizeof(*states));
+	if (!states) {
+		return false;
+	}
+	struct config_output_state *config_states = calloc(configs_len, sizeof(*config_states));
+	if (!config_states) {
+		free(states);
+		return false;
+	}
+
+	sway_log(SWAY_DEBUG, "Committing %zd outputs", configs_len);
+	for (size_t idx = 0; idx < configs_len; idx++) {
+		struct matched_output_config *cfg = &configs[idx];
+		struct wlr_backend_output_state *backend_state = &states[idx];
+		struct config_output_state *config_state = &config_states[idx];
+
+		backend_state->output = cfg->output->wlr_output;
+		wlr_output_state_init(&backend_state->base);
+
+		queue_output_config(cfg->config, cfg->output, &backend_state->base);
+		dump_output_state(cfg->output->wlr_output, &backend_state->base);
+
+		config_state->color_transform = get_color_profile(cfg->output->wlr_output, cfg->config);
+	}
+
+	struct wlr_output_swapchain_manager swapchain_mgr;
+	wlr_output_swapchain_manager_init(&swapchain_mgr, server.backend);
+
+	bool ok = wlr_output_swapchain_manager_prepare(&swapchain_mgr, states, configs_len);
+	if (!ok) {
+		sway_log(SWAY_ERROR, "Requested backend configuration failed, searching for valid fallbacks");
+		struct search_context ctx = {
+			.swapchain_mgr = &swapchain_mgr,
+			.states = states,
+			.configs = configs,
+			.configs_len = configs_len,
+			.degrade_to_off = degrade_to_off,
+		};
+		if (!search_valid_config(&ctx, 0)) {
+			sway_log(SWAY_ERROR, "Search for valid config failed");
+			goto out;
+		}
+	}
+
+	if (test_only) {
+		// The swapchain manager already did a test for us
+		goto out;
+	}
+
+	for (size_t idx = 0; idx < configs_len; idx++) {
+		struct matched_output_config *cfg = &configs[idx];
+		struct wlr_backend_output_state *backend_state = &states[idx];
+		struct config_output_state *config_state = &config_states[idx];
+
+		struct wlr_scene_output_state_options opts = {
+			.swapchain = wlr_output_swapchain_manager_get_swapchain(
+				&swapchain_mgr, backend_state->output),
+			.color_transform = config_state->color_transform,
+		};
+		struct wlr_scene_output *scene_output = cfg->output->scene_output;
+		struct wlr_output_state *state = &backend_state->base;
+		if (!wlr_scene_output_build_state(scene_output, state, &opts)) {
+			sway_log(SWAY_ERROR, "Building output state for '%s' failed",
+				backend_state->output->name);
+			goto out;
+		}
+	}
+
+	ok = wlr_backend_commit(server.backend, states, configs_len);
+	if (!ok) {
+		sway_log(SWAY_ERROR, "Backend commit failed");
+		goto out;
+	}
+
+	sway_log(SWAY_DEBUG, "Commit of %zd outputs succeeded", configs_len);
+
+	wlr_output_swapchain_manager_apply(&swapchain_mgr);
+
+	for (size_t idx = 0; idx < configs_len; idx++) {
+		struct matched_output_config *cfg = &configs[idx];
+		struct wlr_backend_output_state *backend_state = &states[idx];
+		struct config_output_state *config_state = &config_states[idx];
+		sway_log(SWAY_DEBUG, "Finalizing config for %s",
+			cfg->output->wlr_output->name);
+		finalize_output_config(cfg->config, cfg->output, &backend_state->base, config_state);
+	}
+
+	// Output layout being applied in finalize_output_config can shift outputs
+	// around, so we do a second pass to update positions and arrange.
+	for (size_t idx = 0; idx < configs_len; idx++) {
+		struct matched_output_config *cfg = &configs[idx];
+		output_update_position(cfg->output);
+		arrange_layers(cfg->output);
+	}
+
+	arrange_root();
+	arrange_locks();
+	update_output_manager_config(&server);
+	transaction_commit_dirty();
+
+out:
+	wlr_output_swapchain_manager_finish(&swapchain_mgr);
+	for (size_t idx = 0; idx < configs_len; idx++) {
+		struct wlr_backend_output_state *backend_state = &states[idx];
+		wlr_output_state_finish(&backend_state->base);
+		config_output_state_finish(&config_states[idx]);
+	}
+	free(states);
+	free(config_states);
 
 	output->max_render_time = oc && oc->max_render_time > 0 ? oc->max_render_time : 0;
 	output->allow_tearing = oc && oc->allow_tearing > 0;

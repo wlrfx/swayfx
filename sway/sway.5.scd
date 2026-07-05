@@ -232,8 +232,8 @@ set|plus|minus|toggle <amount>
 	regardless of the tearing hints.
 
 	This setting only has an effect if tearing is allowed on the output through
-	the per-output *allow_tearing* setting. See *sway-output*(5) 
-	for further details.
+	the per-output *allow_tearing* setting. See *sway-output*(5) for further
+	details.
 
 *move* left|right|up|down [<px> px]
 	Moves the focused container in the direction specified. The optional _px_
@@ -306,28 +306,34 @@ set|plus|minus|toggle <amount>
 *rename* workspace [<old_name>] to <new_name>
 	Rename either <old_name> or the focused workspace to the <new_name>
 
-*resize* shrink|grow width|height [<amount> [px|ppt]]
+*resize* shrink|grow up|right|down|left|width|height [<amount> [px|ppt]]
 	Resizes the currently focused container by _amount_, specified in pixels or
 	percentage points. If the units are omitted, floating containers are resized
 	in px and tiled containers by ppt. _amount_ will default to 10 if omitted.
+	For tiling containers, space is taken/given from the container in the
+	specified direction. If _width_ or _height_ is specified, space will be
+	taken/given from all other containers.
 
 *resize* set height <height> [px|ppt]
 	Sets the height of the container to _height_, specified in pixels or
 	percentage points. If the units are omitted, floating containers are
 	resized in px and tiled containers by ppt. If _height_ is 0, the container
-	will not be resized.
+	will not be resized. For tiling containers, space is taken/given from all
+	other containers.
 
 *resize* set [width] <width> [px|ppt]
 	Sets the width of the container to _width_, specified in pixels or
 	percentage points. If the units are omitted, floating containers are
 	resized in px and tiled containers by ppt. If _width_ is 0, the container
-	will not be resized.
+	will not be resized. For tiling containers, space is taken/given from all
+	other containers.
 
 *resize* set [width] <width> [px|ppt] [height] <height> [px|ppt]
 	Sets the width and height of the container to _width_ and _height_,
 	specified in pixels or percentage points. If the units are omitted,
 	floating containers are resized in px and tiled containers by ppt. If
 	_width_ or _height_ is 0, the container will not be resized on that axis.
+	For tiling containers, space is taken/given from all other containers.
 
 *scratchpad* show
 	Shows a window from the scratchpad. Repeatedly using this command will
@@ -508,11 +514,12 @@ animation_duration_ms <value>
 
 *bindswitch* [--locked] [--no-warn] [--reload] <switch>:<state> <command>
 	Binds <switch> to execute the sway command _command_ on state changes.
-	Supported switches are _lid_ (laptop lid) and _tablet_ (tablet mode)
-	switches. Valid values for _state_ are _on_, _off_ and _toggle_. These
-	switches are on when the device lid is shut and when tablet mode is active
-	respectively. _toggle_ is also supported to run a command both when the
-	switch is toggled on or off.
+	Supported switches are _lid_ (laptop lid), _tablet_ (tablet mode) and
+	_keypad_slide_ (whether the device keypad is exposed or not) switches. Valid
+	values for _state_ are _on_, _off_ and _toggle_. These switches are on when
+	the device lid is shut, when tablet mode is active and when the keypad is
+	exposed respectively. _toggle_ is also supported to run a command both when
+	the switch is toggled on or off.
 
 	Unless the flag _--locked_ is set, the command will not be run when a
 	screen locking program is active. If there is a matching binding with
@@ -1169,6 +1176,9 @@ The following attributes may be matched with:
 	Compare value against the window shell, such as "xdg_shell" or "xwayland".
 	Can be a regular expression. If value is \_\_focused\_\_, then the shell
 	must be the same as that of the currently focused window.
+
+*tag*
+	Compare value against the tag. _tag_ is specific to Wayland applications.
 
 *tiling*
 	Matches tiling windows.

@@ -13,7 +13,6 @@
 #include "log.h"
 #include "sway/config.h"
 #include "sway/ipc-json.h"
-#include "sway/scene_descriptor.h"
 #include "sway/server.h"
 #include "sway/tree/container.h"
 #include "sway/tree/root.h"
@@ -323,6 +322,14 @@ static void ipc_json_describe_wlr_output(struct wlr_output *wlr_output, json_obj
 		json_object_array_add(modes_array, mode_object);
 	}
 	json_object_object_add(object, "modes", modes_array);
+
+	json_object *features_object = json_object_new_object();
+	json_object_object_add(features_object, "adaptive_sync",
+		json_object_new_boolean(wlr_output->adaptive_sync_supported ||
+			wlr_output->adaptive_sync_status ==  WLR_OUTPUT_ADAPTIVE_SYNC_ENABLED));
+	json_object_object_add(features_object, "hdr",
+		json_object_new_boolean(output_supports_hdr(wlr_output, NULL)));
+	json_object_object_add(object, "features", features_object);
 }
 
 static void ipc_json_describe_output(struct sway_output *output,
@@ -482,8 +489,8 @@ static void ipc_json_describe_enabled_output(struct sway_output *output,
 	}
 
 	json_object_object_add(object, "max_render_time", json_object_new_int(output->max_render_time));
-
 	json_object_object_add(object, "allow_tearing", json_object_new_boolean(output->allow_tearing));
+	json_object_object_add(object, "hdr", json_object_new_boolean(output->hdr));
 }
 
 json_object *ipc_json_describe_disabled_output(struct sway_output *output) {
@@ -700,6 +707,9 @@ static void ipc_json_describe_view(struct sway_container *c, json_object *object
 	const char *sandbox_instance_id = view_get_sandbox_instance_id(c->view);
 	json_object_object_add(object, "sandbox_instance_id",
 			sandbox_instance_id ? json_object_new_string(sandbox_instance_id) : NULL);
+
+	const char *tag = view_get_tag(c->view);
+	json_object_object_add(object, "tag", tag ? json_object_new_string(tag) : NULL);
 
 	json_object *idle_inhibitors = json_object_new_object();
 

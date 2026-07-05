@@ -61,7 +61,7 @@ static void transaction_destroy(struct sway_transaction *transaction) {
 		if (node->instruction == instruction) {
 			node->instruction = NULL;
 		}
-		if (node->destroying && node->ntxnrefs == 0) {
+		if (node->destroying && node->ntxnrefs == 0 && !node->dirty) {
 			switch (node->type) {
 			case N_ROOT:
 				sway_assert(false, "Never reached");
@@ -430,10 +430,6 @@ static void arrange_container(struct sway_container *con,
 	con->animation_state.current_width = width;
 	con->animation_state.current_height = height;
 
-	if (con->output_handler) {
-		wlr_scene_buffer_set_dest_size(con->output_handler, width, height);
-	}
-
 	bool has_corner_radius = container_has_corner_radius(con);
 
 	if (container_has_shadow(con)) {
@@ -469,9 +465,9 @@ static void arrange_container(struct sway_container *con,
 
 	if (con->view) {
 		int corner_radius = has_corner_radius ? con->corner_radius : 0;
+		int vert_border_offset = corner_radius;
 		int border_top = container_titlebar_height();
 		int border_width = con->current.border_thickness;
-		int vert_border_offset = corner_radius;
 
 		if (title_bar && con->current.border != B_NORMAL) {
 			wlr_scene_node_set_enabled(&con->title_bar.tree->node, false);
@@ -600,6 +596,13 @@ static void arrange_container(struct sway_container *con,
 		wlr_scene_node_set_enabled(&con->blur->node, con->blur_enabled);
 		wlr_scene_node_set_position(&con->blur->node, border_left, border_top);
 		wlr_scene_blur_set_size(con->blur, content_width, content_height);
+
+		// the output handler for the view wants to detect events for the entire
+		// container so give it negative coordinates to move it back over the
+		// decorations
+		wlr_scene_node_set_position(&con->view->output_handler->node,
+			-border_left, -border_top);
+		wlr_scene_buffer_set_dest_size(con->view->output_handler, width, height);
 	} else {
 		// make sure to disable the title bar if the parent is not managing it
 		if (title_bar) {
@@ -643,6 +646,11 @@ static void arrange_fullscreen(struct wlr_scene_tree *tree,
 
 		// if we only care about the view, disable any decorations
 		wlr_scene_node_set_enabled(&fs->scene_tree->node, false);
+
+		// reconfigure the output handler (for foreign toplevel) to cover the
+		// view without container decorations
+		wlr_scene_node_set_position(&fs->view->output_handler->node, 0, 0);
+		wlr_scene_buffer_set_dest_size(fs->view->output_handler, width, height);
 	} else {
 		fs_node = &fs->scene_tree->node;
 		arrange_container(fs, width, height, true, container_get_gaps(fs));
@@ -799,15 +807,7 @@ static void arrange_root(struct sway_root *root) {
 	for (int i = 0; i < root->scratchpad->length; i++) {
 		struct sway_container *con = root->scratchpad->items[i];
 
-		// When a container is moved to a scratchpad, it's possible that it
-		// was moved into a floating container as part of the same transaction.
-		// In this case, we need to make sure we reparent all the container's
-		// children so that disabling the container will disable all descendants.
-		if (!con->view) for (int ii = 0; ii < con->current.children->length; ii++) {
-			struct sway_container *child = con->current.children->items[ii];
-			wlr_scene_node_reparent(&child->scene_tree->node, con->content_tree);
-		}
-
+		disable_container(con);
 		wlr_scene_node_set_enabled(&con->scene_tree->node, false);
 	}
 

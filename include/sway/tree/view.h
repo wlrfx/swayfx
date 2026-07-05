@@ -25,6 +25,7 @@ enum sway_view_type {
 enum sway_view_prop {
 	VIEW_PROP_TITLE,
 	VIEW_PROP_APP_ID,
+	VIEW_PROP_TAG,
 	VIEW_PROP_CLASS,
 	VIEW_PROP_INSTANCE,
 	VIEW_PROP_WINDOW_TYPE,
@@ -68,6 +69,12 @@ struct sway_view {
 	struct wlr_scene_tree *scene_tree;
 	struct wlr_scene_tree *content_tree;
 	struct wlr_scene_tree *saved_surface_tree;
+	struct wlr_scene_buffer *output_handler;
+
+	struct wl_listener outputs_update;
+
+	struct wlr_scene *image_capture_scene;
+	struct wlr_ext_image_capture_source_v1 *image_capture_source;
 
 	struct sway_container *container; // NULL if unmapped and transactions finished
 	struct wlr_surface *surface; // NULL for unmapped views
@@ -125,6 +132,9 @@ struct sway_view {
 struct sway_xdg_shell_view {
 	struct sway_view view;
 
+	struct wlr_scene_tree *image_capture_tree;
+	char *tag;
+
 	struct wl_listener commit;
 	struct wl_listener request_move;
 	struct wl_listener request_resize;
@@ -143,6 +153,8 @@ struct sway_xwayland_view {
 	struct sway_view view;
 
 	struct wlr_scene_tree *surface_tree;
+
+	struct wlr_scene_surface *image_capture_scene_surface;
 
 	struct wl_listener commit;
 	struct wl_listener request_move;
@@ -194,10 +206,12 @@ struct sway_popup_desc {
 
 struct sway_xdg_popup {
 	struct sway_view *view;
+	struct wlr_xdg_popup *wlr_xdg_popup;
 
 	struct wlr_scene_tree *scene_tree;
 	struct wlr_scene_tree *xdg_surface_tree;
-	struct wlr_xdg_popup *wlr_xdg_popup;
+
+	struct wlr_scene_tree *image_capture_tree;
 
 	struct sway_popup_desc desc;
 
@@ -352,5 +366,7 @@ void view_assign_ctx(struct sway_view *view, struct launcher_ctx *ctx);
 void view_send_frame_done(struct sway_view *view);
 
 bool view_can_tear(struct sway_view *view);
+
+void xdg_toplevel_tag_manager_v1_handle_set_tag(struct wl_listener *listener, void *data);
 
 #endif

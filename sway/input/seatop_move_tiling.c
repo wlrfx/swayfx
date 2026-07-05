@@ -156,11 +156,11 @@ static bool split_titlebar(struct sway_node *node, struct sway_container *avoid,
 }
 
 static void update_indicator(struct seatop_move_tiling_event *e, struct wlr_box *box) {
-	wlr_scene_node_set_position(&e->indicator_blur->node, box->x, box->y);
-	wlr_scene_blur_set_size(e->indicator_blur, box->width, box->height);
-
 	wlr_scene_node_set_position(&e->indicator_rect->node, box->x, box->y);
 	wlr_scene_rect_set_size(e->indicator_rect, box->width, box->height);
+
+	wlr_scene_node_set_position(&e->indicator_blur->node, box->x, box->y);
+	wlr_scene_blur_set_size(e->indicator_blur, box->width, box->height);
 
 	int corner_radius = config->corner_radius;
 	if (e->con) {
@@ -254,26 +254,31 @@ static void handle_motion_postthreshold(struct sway_seat *seat) {
 		if (layout == L_HORIZ || layout == L_TABBED) {
 			if (cursor->cursor->y < thresh_top) {
 				edge = WLR_EDGE_TOP;
+				if (thresh_top < box.y) thresh_top = box.y;
 				box.height = thresh_top - box.y;
 			} else if (cursor->cursor->y > thresh_bottom) {
 				edge = WLR_EDGE_BOTTOM;
+				if (thresh_bottom > box.y + box.height) thresh_bottom = box.y + box.height;
 				box.height = box.y + box.height - thresh_bottom;
 				box.y = thresh_bottom;
 			}
 		} else if (layout == L_VERT || layout == L_STACKED) {
 			if (cursor->cursor->x < thresh_left) {
 				edge = WLR_EDGE_LEFT;
+				if (thresh_left < box.x) thresh_left = box.x;
 				box.width = thresh_left - box.x;
 			} else if (cursor->cursor->x > thresh_right) {
 				edge = WLR_EDGE_RIGHT;
+				if (thresh_right > box.x + box.width) thresh_right = box.x + box.width;
 				box.width = box.x + box.width - thresh_right;
 				box.x = thresh_right;
 			}
 		}
 		if (edge) {
 			e->target_node = node_get_parent(&con->node);
-			if (e->target_node == &e->con->node) {
-				e->target_node = node_get_parent(e->target_node);
+			if (e->target_node && (e->target_node == &e->con->node ||
+					node_has_ancestor(e->target_node, &e->con->node))) {
+				e->target_node = node_get_parent(&e->con->node);
 			}
 			e->target_edge = edge;
 			update_indicator(e, &box);
@@ -393,7 +398,7 @@ static void finalize_move(struct sway_seat *seat) {
 		enum sway_container_layout new_layout = edge == WLR_EDGE_TOP ||
 			edge == WLR_EDGE_BOTTOM ? L_VERT : L_HORIZ;
 		workspace_split(new_ws, new_layout);
-		workspace_insert_tiling(new_ws, con, after);
+		workspace_insert_tiling(new_ws, con, after ? new_ws->tiling->length : 0);
 	}
 
 	if (old_parent) {
@@ -483,7 +488,6 @@ void seatop_begin_move_tiling_threshold(struct sway_seat *seat,
 
 	e->indicator_rect = wlr_scene_rect_create(seat->scene_tree, 0, 0, color);
 	if (!e->indicator_rect) {
-		wlr_scene_node_destroy(&e->indicator_blur->node);
 		free(e);
 		return;
 	}

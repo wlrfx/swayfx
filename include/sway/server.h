@@ -112,15 +112,23 @@ struct sway_server {
 	struct wlr_export_dmabuf_manager_v1 *export_dmabuf_manager_v1;
 	struct wlr_security_context_manager_v1 *security_context_manager_v1;
 
+	struct wlr_ext_foreign_toplevel_image_capture_source_manager_v1 *ext_foreign_toplevel_image_capture_source_manager_v1;
+	struct wl_listener new_foreign_toplevel_capture_request;
+
 	struct wlr_xdg_activation_v1 *xdg_activation_v1;
 	struct wl_listener xdg_activation_v1_request_activate;
 	struct wl_listener xdg_activation_v1_new_token;
 
+	struct wl_listener xdg_toplevel_tag_manager_v1_set_tag;
+
 	struct wl_listener request_set_cursor_shape;
-	
+
 	struct wlr_tearing_control_manager_v1 *tearing_control_v1;
 	struct wl_listener tearing_control_new_object;
 	struct wl_list tearing_controllers; // sway_tearing_controller::link
+
+	struct wlr_ext_workspace_manager_v1 *workspace_manager_v1;
+	struct wl_listener workspace_manager_v1_commit;
 
 	struct wl_list pending_launcher_ctxs; // launcher_ctx::link
 
@@ -155,7 +163,7 @@ struct sway_debug {
 
 extern struct sway_debug debug;
 
-extern bool allow_unsupported_gpu;
+extern bool unsupported_gpu_detected;
 
 void sway_terminate(int exit_code);
 
@@ -168,7 +176,7 @@ void handle_new_output(struct wl_listener *listener, void *data);
 
 void handle_idle_inhibitor_v1(struct wl_listener *listener, void *data);
 void handle_layer_shell_surface(struct wl_listener *listener, void *data);
-void sway_session_lock_init(void);
+bool sway_session_lock_init(void);
 void sway_session_lock_add_output(struct sway_session_lock *lock,
 	struct sway_output *output);
 bool sway_session_lock_has_surface(struct sway_session_lock *lock,

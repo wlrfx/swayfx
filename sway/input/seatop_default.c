@@ -16,6 +16,7 @@
 #include "sway/tree/view.h"
 #include "sway/tree/workspace.h"
 #include "log.h"
+#include "util.h"
 #if WLR_HAS_XWAYLAND
 #include "sway/xwayland.h"
 #endif
@@ -793,7 +794,7 @@ static void handle_pointer_axis(struct sway_seat *seat,
 
 	if (!handled) {
 		wlr_seat_pointer_notify_axis(cursor->seat->wlr_seat, event->time_msec,
-			event->orientation, scroll_factor * event->delta, 
+			event->orientation, scroll_factor * event->delta,
 			roundf(scroll_factor * event->delta_discrete), event->source,
 			event->relative_direction);
 	}
@@ -1110,7 +1111,7 @@ static void handle_rebase(struct sway_seat *seat, uint32_t time_msec) {
 			cursor->cursor->x, cursor->cursor->y, &surface, &sx, &sy);
 
 	if (surface) {
-		if (seat_is_input_allowed(seat, surface)) {
+		if (seat_is_input_allowed(seat, surface) && !cursor->hidden) {
 			wlr_seat_pointer_notify_enter(seat->wlr_seat, surface, sx, sy);
 			wlr_seat_pointer_notify_motion(seat->wlr_seat, time_msec, sx, sy);
 		}
@@ -1148,5 +1149,7 @@ void seatop_begin_default(struct sway_seat *seat) {
 
 	seat->seatop_impl = &seatop_impl;
 	seat->seatop_data = e;
-	seatop_rebase(seat, 0);
+
+	uint32_t time_msec = get_current_time_in_msec();
+	seatop_rebase(seat, time_msec);
 }

@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <sys/types.h>
 #include <wlr/types/wlr_compositor.h>
+#include <wlr/types/wlr_scene.h>
 #include "list.h"
 #include "sway/animation_manager.h"
 #include "sway/tree/node.h"
@@ -94,7 +95,6 @@ struct sway_container {
 	struct wlr_scene_blur *blur;
 	struct wlr_scene_shadow *shadow;
 
-	struct wlr_scene_tree *content_tree;
 	struct wlr_scene_rect *dim_rect;
 	struct wlr_scene_buffer *output_handler;
 
@@ -102,13 +102,15 @@ struct sway_container {
 	struct wl_listener output_leave;
 	struct wl_listener output_handler_destroy;
 
+	struct wlr_scene_tree *content_tree;
+
 	struct sway_container_state current;
 	struct sway_container_state pending;
 
 	char *title;           // The view's title (unformatted)
 	char *formatted_title; // The title displayed in the title bar
 	int title_width;
-	
+
 	char *title_format;
 
 	enum sway_container_layout prev_split_layout;
@@ -154,8 +156,6 @@ struct sway_container {
 	bool shadow_enabled;
 	float dim;
 
-	list_t *marks; // char *
-
 	struct {
 		struct animation *animation;
 		int delta_x;
@@ -167,6 +167,8 @@ struct sway_container {
 		int current_content_width; // needed for output.c
 		int current_content_height; // needed for output.c
 	} animation_state;
+
+	list_t *marks; // char *
 
 	struct {
 		struct wl_signal destroy;

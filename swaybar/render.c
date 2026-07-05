@@ -13,7 +13,6 @@
 #include "swaybar/ipc.h"
 #include "swaybar/render.h"
 #include "swaybar/status_line.h"
-#include "log.h"
 #if HAVE_TRAY
 #include "swaybar/tray/tray.h"
 #endif
@@ -21,7 +20,7 @@
 
 static const int WS_HORIZONTAL_PADDING = 5;
 static const double WS_VERTICAL_PADDING = 1.5;
-static const double BORDER_WIDTH = 1;
+static const int BORDER_WIDTH = 1;
 
 struct render_context {
 	cairo_t *cairo;
@@ -541,6 +540,63 @@ static uint32_t render_status_line(struct render_context *ctx, double *x) {
 	return 0;
 }
 
+static struct box_size render_box(struct render_context *ctx, double x,
+		struct box_colors colors, const char *label, bool pango_markup) {
+	struct swaybar_output *output = ctx->output;
+	struct swaybar_config *config = output->bar->config;
+	cairo_t *cairo = ctx->cairo;
+
+	int text_width, text_height;
+	get_text_size(cairo, config->font_description, &text_width, &text_height, NULL,
+			1, pango_markup, "%s", label);
+
+	uint32_t width = text_width + WS_HORIZONTAL_PADDING * 2 + BORDER_WIDTH * 2;
+	if (width < config->workspace_min_width) {
+		width = config->workspace_min_width;
+	}
+
+	uint32_t ideal_height = text_height + WS_VERTICAL_PADDING * 2
+		+ BORDER_WIDTH * 2;
+	uint32_t ideal_surface_height = ideal_height;
+	if (!output->bar->config->height &&
+			output->height < ideal_surface_height) {
+		return (struct box_size) {
+			.width = width,
+			.height = ideal_surface_height,
+		};
+	}
+
+	uint32_t height = output->height;
+	cairo_set_operator(cairo, CAIRO_OPERATOR_SOURCE);
+	cairo_set_source_u32(cairo, colors.background);
+	ctx->background_color = colors.background;
+	ctx->has_transparency |= (colors.background & 0xFF) != 0xFF;
+	cairo_rectangle(cairo, x, 0, width, height);
+	cairo_fill(cairo);
+
+	cairo_set_source_u32(cairo, colors.border);
+	cairo_rectangle(cairo, x, 0, width, BORDER_WIDTH);
+	cairo_fill(cairo);
+	cairo_rectangle(cairo, x, 0, BORDER_WIDTH, height);
+	cairo_fill(cairo);
+	cairo_rectangle(cairo, x + width - BORDER_WIDTH, 0, BORDER_WIDTH, height);
+	cairo_fill(cairo);
+	cairo_rectangle(cairo, x, height - BORDER_WIDTH, width, BORDER_WIDTH);
+	cairo_fill(cairo);
+
+	double text_y = height / 2.0 - text_height / 2.0;
+	cairo_set_source_u32(cairo, colors.text);
+	cairo_move_to(cairo, x + width / 2 - text_width / 2, (int)floor(text_y));
+	choose_text_aa_mode(ctx, colors.text);
+	render_text(cairo, config->font_description, 1, pango_markup,
+			"%s", label);
+
+	return (struct box_size) {
+		.width = width,
+		.height = output->height,
+	};
+}
+
 static uint32_t render_binding_mode_indicator(struct render_context *ctx,
 		double x) {
 	struct swaybar_output *output = ctx->output;
@@ -618,6 +674,7 @@ static uint32_t render_workspace_button(struct render_context *ctx,
 		struct swaybar_workspace *ws, double *x) {
 	struct swaybar_output *output = ctx->output;
 	struct swaybar_config *config = output->bar->config;
+
 	struct box_colors box_colors;
 	if (ws->urgent) {
 		box_colors = config->colors.urgent_workspace;
@@ -680,15 +737,15 @@ static uint32_t render_workspace_button(struct render_context *ctx,
 	struct swaybar_hotspot *hotspot = calloc(1, sizeof(struct swaybar_hotspot));
 	hotspot->x = *x;
 	hotspot->y = 0;
-	hotspot->width = width;
-	hotspot->height = height;
+	hotspot->width = size.width;
+	hotspot->height = size.height;
 	hotspot->callback = workspace_hotspot_callback;
 	hotspot->destroy = free;
 	hotspot->data = strdup(ws->name);
 	wl_list_insert(&output->hotspots, &hotspot->link);
 
-	*x += width;
-	return output->height;
+	*x += size.width;
+	return size.height;
 }
 
 static uint32_t render_to_cairo(struct render_context *ctx) {

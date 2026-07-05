@@ -223,6 +223,13 @@ void root_scratchpad_show(struct sway_container *con) {
 	}
 	set_container_transform(new_ws, con);
 
+	if (new_ws->output) {
+		struct wlr_box output_box;
+		output_get_box(new_ws->output, &output_box);
+		floating_fix_coordinates(con, &con->transform, &output_box);
+	}
+	set_container_transform(new_ws, con);
+
 	arrange_workspace(new_ws);
 	seat_set_focus(seat, seat_get_focus_inactive(seat, &con->node));
 	if (old_ws) {
@@ -243,9 +250,7 @@ void root_scratchpad_hide(struct sway_container *con) {
 	struct sway_node *focus = seat_get_focus_inactive(seat, &root->node);
 	struct sway_workspace *ws = con->pending.workspace;
 
-	if (con->pending.fullscreen_mode == FULLSCREEN_GLOBAL && !con->pending.workspace) {
-		// If the container was made fullscreen global while in the scratchpad,
-		// it should be shown until fullscreen has been disabled
+	if (!con->pending.workspace) {
 		return;
 	}
 

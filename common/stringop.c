@@ -364,4 +364,3 @@ char *format_str(const char *fmt, ...) {
 bool has_prefix(const char *str, const char *prefix) {
 	return strncmp(str, prefix, strlen(prefix)) == 0;
 }
-

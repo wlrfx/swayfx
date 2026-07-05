@@ -7,7 +7,6 @@
 #include <wlr/types/wlr_linux_dmabuf_v1.h>
 #include <wlr/types/wlr_output_layout.h>
 #include <wlr/types/wlr_subcompositor.h>
-#include "linux-dmabuf-unstable-v1-protocol.h"
 #include "sway/config.h"
 #include "sway/desktop/transaction.h"
 #include "sway/input/input-manager.h"
@@ -25,43 +24,6 @@
 #include "pango.h"
 #include "log.h"
 #include "stringop.h"
-
-static void handle_output_enter(
-		struct wl_listener *listener, void *data) {
-	struct sway_container *con = wl_container_of(
-			listener, con, output_enter);
-	struct wlr_scene_output *output = data;
-
-	if (con->view->foreign_toplevel) {
-		wlr_foreign_toplevel_handle_v1_output_enter(
-			con->view->foreign_toplevel, output->output);
-	}
-}
-
-static void handle_output_leave(
-		struct wl_listener *listener, void *data) {
-	struct sway_container *con = wl_container_of(
-			listener, con, output_leave);
-	struct wlr_scene_output *output = data;
-
-	if (con->view->foreign_toplevel) {
-		wlr_foreign_toplevel_handle_v1_output_leave(
-			con->view->foreign_toplevel, output->output);
-	}
-}
-
-static void handle_destroy(
-		struct wl_listener *listener, void *data) {
-	struct sway_container *con = wl_container_of(
-			listener, con, output_handler_destroy);
-
-	container_begin_destroy(con);
-}
-
-static bool handle_point_accepts_input(
-		struct wlr_scene_buffer *buffer, double *x, double *y) {
-	return false;
-}
 
 static struct wlr_scene_rect *alloc_rect_node(struct wlr_scene_tree *parent,
 		bool *failed) {
@@ -136,19 +98,6 @@ struct sway_container *container_create(struct sway_view *view) {
 			sway_log(SWAY_ERROR, "Failed to allocate a scene node");
 			failed = true;
 		}
-
-		if (!failed) {
-			c->output_enter.notify = handle_output_enter;
-			wl_signal_add(&c->output_handler->events.output_enter,
-					&c->output_enter);
-			c->output_leave.notify = handle_output_leave;
-			wl_signal_add(&c->output_handler->events.output_leave,
-					&c->output_leave);
-			c->output_handler_destroy.notify = handle_destroy;
-			wl_signal_add(&c->output_handler->node.events.destroy,
-					&c->output_handler_destroy);
-			c->output_handler->point_accepts_input = handle_point_accepts_input;
-		}
 	}
 
 	if (!failed && !scene_descriptor_assign(&c->scene_tree->node,
@@ -171,6 +120,7 @@ struct sway_container *container_create(struct sway_view *view) {
 	c->view = view;
 	c->alpha = 1.0f;
 	c->marks = create_list();
+
 	c->corner_radius = config->corner_radius;
 	c->blur_enabled = config->blur_enabled;
 	c->shadow_enabled = config->shadow_enabled;
@@ -356,13 +306,46 @@ void container_update_itself_and_parents(struct sway_container *con) {
 	}
 }
 
+static struct fx_corner_radii get_titlebar_corners(struct sway_container *con) {
+	int radius = container_has_corner_radius(con) ? con->corner_radius +
+		con->current.border_thickness - config->titlebar_border_thickness : 0;
+	struct fx_corner_radii corners = corner_radii_top(radius);
+
+	enum sway_container_layout layout;
+	const list_t *siblings;
+	if (con->current.parent) {
+		layout = con->current.parent->current.layout;
+		siblings = con->current.parent->current.children;
+	} else if (con->current.workspace) {
+		layout = con->current.workspace->layout;
+		siblings = con->current.workspace->tiling;
+	} else {
+		return corners;
+	}
+
+	if (layout == L_TABBED && siblings->length > 1) {
+		if (siblings->items[0] == con) {
+			corners.top_right = 0;
+		} else if (siblings->items[siblings->length - 1] == con) {
+			corners.top_left = 0;
+		} else {
+			return corner_radii_none();
+		}
+	} else if (layout == L_STACKED && siblings->items[0] != con) {
+		return corner_radii_none();
+	}
+
+	return corners;
+}
+
 void container_arrange_title_bar(struct sway_container *con) {
 	enum alignment title_align = config->title_align;
 	int marks_buffer_width = 0;
 	int width = con->title_width;
 	int height = container_titlebar_height();
 
-	struct wlr_box text_box = { 0, 0, 0, 0 };
+	pixman_region32_t text_area;
+	pixman_region32_init(&text_area);
 
 	if (con->title_bar.marks_text) {
 		struct sway_text_node *node = con->title_bar.marks_text;
@@ -385,10 +368,8 @@ void container_arrange_title_bar(struct sway_container *con) {
 		wlr_scene_node_set_position(node->node,
 			h_padding, (height - node->height) >> 1);
 
-		text_box.x = node->node->x;
-		text_box.y = node->node->y;
-		text_box.width = alloc_width;
-		text_box.height = node->height;
+		pixman_region32_union_rect(&text_area, &text_area,
+			node->node->x, node->node->y, alloc_width, node->height);
 	}
 
 	if (con->title_bar.title_text) {
@@ -413,57 +394,42 @@ void container_arrange_title_bar(struct sway_container *con) {
 		wlr_scene_node_set_position(node->node,
 			h_padding, (height - node->height) >> 1);
 
-		text_box.x = MAX(text_box.x, node->node->x);
-		text_box.y = MAX(text_box.y, node->node->y);
-		text_box.width = MAX(text_box.width, alloc_width);
-		text_box.height = MAX(text_box.height, node->height);
+		pixman_region32_union_rect(&text_area, &text_area,
+			node->node->x, node->node->y, alloc_width, node->height);
 	}
 
+	// silence pixman errors
 	if (width <= 0 || height <= 0) {
+		pixman_region32_fini(&text_area);
 		return;
 	}
 
+	pixman_region32_t background, border;
+
 	int thickness = config->titlebar_border_thickness;
-	int background_corner_radius = container_has_corner_radius(con) ?
-			con->corner_radius + con->current.border_thickness - thickness : 0;
-	struct fx_corner_radii corners = corner_radii_top(background_corner_radius);
+	pixman_region32_init_rect(&background,
+		thickness, thickness,
+		width - thickness * 2, height - thickness * 2);
+	pixman_region32_init_rect(&border, 0, 0, width, height);
+	pixman_region32_subtract(&border, &border, &background);
 
-	enum sway_container_layout layout;
-	const list_t *siblings;
-	if (con->current.parent) {
-		layout = con->current.parent->current.layout;
-		siblings = con->current.parent->current.children;
-	} else if (con->current.workspace) {
-		layout = con->current.workspace->layout;
-		siblings = con->current.workspace->tiling;
-	}
+	pixman_region32_subtract(&background, &background, &text_area);
 
-	if (con->current.parent || con->current.workspace) {
-		if (layout == L_TABBED && siblings->length > 1) {
-			if (siblings->items[0] == con) {
-				corners.top_right = 0;
-			} else if (siblings->items[siblings->length - 1] == con) {
-				corners.top_left = 0;
-			} else {
-				background_corner_radius = 0;
-				corners = corner_radii_none();
-			}
-		} else if (layout == L_STACKED && siblings->items[0] != con) {
-			background_corner_radius = 0;
-			corners = corner_radii_none();
-		}
-	}
+	struct fx_corner_radii corners = get_titlebar_corners(con);
 
 	wlr_scene_node_set_position(&con->title_bar.background->node, thickness, thickness);
 	wlr_scene_rect_set_size(con->title_bar.background, width - thickness * 2,
 			height - thickness * (config->titlebar_separator ? 2 : 1));
 	wlr_scene_rect_set_corner_radii(con->title_bar.background, corners);
-
-	text_box.x -= thickness;
-	text_box.y -= thickness;
 	wlr_scene_rect_set_clipped_region(con->title_bar.background, (struct clipped_region) {
 			.corners = {0},
-			.area = text_box,
+			// TODO: do I need to subtract thickness
+			.area = {
+				.x = pixman_region32_extents(&text_area)->x1,
+				.y = pixman_region32_extents(&text_area)->y1,
+				.width = pixman_region32_extents(&text_area)->x2 - pixman_region32_extents(&text_area)->x1,
+				.height = pixman_region32_extents(&text_area)->y2 - pixman_region32_extents(&text_area)->y1,
+			},
 	});
 
 	wlr_scene_rect_set_size(con->title_bar.border, width, height);
@@ -471,12 +437,16 @@ void container_arrange_title_bar(struct sway_container *con) {
 	wlr_scene_rect_set_clipped_region(con->title_bar.border, (struct clipped_region) {
 			.corners = corners,
 			.area = {
-			  .x = thickness,
-			  .y = thickness,
-			  .width = con->title_bar.background->width,
-			  .height = con->title_bar.background->height,
+				.x = thickness,
+				.y = thickness,
+				.width = con->title_bar.background->width,
+				.height = con->title_bar.background->height,
 			},
 	});
+
+	pixman_region32_fini(&text_area);
+	pixman_region32_fini(&background);
+	pixman_region32_fini(&border);
 
 	container_update(con);
 }
@@ -574,7 +544,6 @@ void container_destroy(struct sway_container *con) {
 
 	if (con->view && con->view->container == con) {
 		con->view->container = NULL;
-		wlr_scene_node_destroy(&con->output_handler->node);
 		if (con->view->destroying) {
 			view_destroy(con->view);
 		}
@@ -602,8 +571,8 @@ void container_begin_destroy(struct sway_container *con) {
 
 	container_end_mouse_operation(con);
 
-	con->node.destroying = true;
 	node_set_dirty(&con->node);
+	con->node.destroying = true;
 
 	if (con->scratchpad) {
 		root_scratchpad_remove_container(con);

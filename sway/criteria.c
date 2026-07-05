@@ -37,7 +37,8 @@ bool criteria_is_empty(struct criteria *criteria) {
 		&& !criteria->pid
 		&& !criteria->sandbox_engine
 		&& !criteria->sandbox_app_id
-		&& !criteria->sandbox_instance_id;
+		&& !criteria->sandbox_instance_id
+		&& !criteria->tag;
 }
 
 // The error pointer is used for parsing functions, and saves having to pass it
@@ -104,6 +105,7 @@ void criteria_destroy(struct criteria *criteria) {
 	pattern_destroy(criteria->sandbox_engine);
 	pattern_destroy(criteria->sandbox_app_id);
 	pattern_destroy(criteria->sandbox_instance_id);
+	pattern_destroy(criteria->tag);
 	free(criteria->target);
 	free(criteria->cmdlist);
 	free(criteria->raw);
@@ -194,6 +196,10 @@ static bool criteria_matches_view(struct criteria *criteria,
 	struct sway_container *focus = seat_get_focused_container(seat);
 	struct sway_view *focused = focus ? focus->view : NULL;
 
+	if (!view->container) {
+		return false;
+	}
+
 	if (criteria->title) {
 		const char *title = view_get_title(view);
 		if (!title) {
@@ -202,7 +208,7 @@ static bool criteria_matches_view(struct criteria *criteria,
 
 		switch (criteria->title->match_type) {
 		case PATTERN_FOCUSED:
-			if (focused && lenient_strcmp(title, view_get_title(focused))) {
+			if (!focused || lenient_strcmp(title, view_get_title(focused))) {
 				return false;
 			}
 			break;
@@ -222,7 +228,7 @@ static bool criteria_matches_view(struct criteria *criteria,
 
 		switch (criteria->shell->match_type) {
 		case PATTERN_FOCUSED:
-			if (focused && strcmp(shell, view_get_shell(focused))) {
+			if (!focused || strcmp(shell, view_get_shell(focused))) {
 				return false;
 			}
 			break;
@@ -242,7 +248,7 @@ static bool criteria_matches_view(struct criteria *criteria,
 
 		switch (criteria->app_id->match_type) {
 		case PATTERN_FOCUSED:
-			if (focused && lenient_strcmp(app_id, view_get_app_id(focused))) {
+			if (!focused || lenient_strcmp(app_id, view_get_app_id(focused))) {
 				return false;
 			}
 			break;
@@ -262,7 +268,7 @@ static bool criteria_matches_view(struct criteria *criteria,
 
 		switch (criteria->sandbox_engine->match_type) {
 		case PATTERN_FOCUSED:
-			if (focused && lenient_strcmp(sandbox_engine, view_get_sandbox_engine(focused))) {
+			if (!focused || lenient_strcmp(sandbox_engine, view_get_sandbox_engine(focused))) {
 				return false;
 			}
 			break;
@@ -282,7 +288,7 @@ static bool criteria_matches_view(struct criteria *criteria,
 
 		switch (criteria->sandbox_app_id->match_type) {
 		case PATTERN_FOCUSED:
-			if (focused && lenient_strcmp(sandbox_app_id, view_get_sandbox_app_id(focused))) {
+			if (!focused || lenient_strcmp(sandbox_app_id, view_get_sandbox_app_id(focused))) {
 				return false;
 			}
 			break;
@@ -302,12 +308,32 @@ static bool criteria_matches_view(struct criteria *criteria,
 
 		switch (criteria->sandbox_instance_id->match_type) {
 		case PATTERN_FOCUSED:
-			if (focused && lenient_strcmp(sandbox_instance_id, view_get_sandbox_instance_id(focused))) {
+			if (!focused || lenient_strcmp(sandbox_instance_id, view_get_sandbox_instance_id(focused))) {
 				return false;
 			}
 			break;
 		case PATTERN_PCRE2:
 			if (regex_cmp(sandbox_instance_id, criteria->sandbox_instance_id->regex) < 0) {
+				return false;
+			}
+			break;
+		}
+	}
+
+	if (criteria->tag) {
+		const char *tag = view_get_tag(view);
+		if (!tag) {
+			return false;
+		}
+
+		switch (criteria->tag->match_type) {
+		case PATTERN_FOCUSED:
+			if (!focused || lenient_strcmp(tag, view_get_tag(focused))) {
+				return false;
+			}
+			break;
+		case PATTERN_PCRE2:
+			if (regex_cmp(tag, criteria->tag->regex) < 0) {
 				return false;
 			}
 			break;
@@ -334,7 +360,7 @@ static bool criteria_matches_view(struct criteria *criteria,
 
 		switch (criteria->class->match_type) {
 		case PATTERN_FOCUSED:
-			if (focused && lenient_strcmp(class, view_get_class(focused))) {
+			if (!focused || lenient_strcmp(class, view_get_class(focused))) {
 				return false;
 			}
 			break;
@@ -354,7 +380,7 @@ static bool criteria_matches_view(struct criteria *criteria,
 
 		switch (criteria->instance->match_type) {
 		case PATTERN_FOCUSED:
-			if (focused && lenient_strcmp(instance, view_get_instance(focused))) {
+			if (!focused || lenient_strcmp(instance, view_get_instance(focused))) {
 				return false;
 			}
 			break;
@@ -374,7 +400,7 @@ static bool criteria_matches_view(struct criteria *criteria,
 
 		switch (criteria->window_role->match_type) {
 		case PATTERN_FOCUSED:
-			if (focused && lenient_strcmp(window_role, view_get_window_role(focused))) {
+			if (!focused || lenient_strcmp(window_role, view_get_window_role(focused))) {
 				return false;
 			}
 			break;
@@ -432,7 +458,7 @@ static bool criteria_matches_view(struct criteria *criteria,
 
 		switch (criteria->workspace->match_type) {
 		case PATTERN_FOCUSED:
-			if (focused &&
+			if (!focused ||
 					strcmp(ws->name, focused->container->pending.workspace->name)) {
 				return false;
 			}
@@ -544,6 +570,7 @@ enum criteria_token {
 	T_SANDBOX_ENGINE,
 	T_SANDBOX_APP_ID,
 	T_SANDBOX_INSTANCE_ID,
+	T_TAG,
 
 	T_INVALID,
 };
@@ -589,6 +616,8 @@ static enum criteria_token token_from_name(char *name) {
 		return T_SANDBOX_APP_ID;
 	} else if (strcmp(name, "sandbox_instance_id") == 0) {
 		return T_SANDBOX_INSTANCE_ID;
+	} else if (strcmp(name, "tag") == 0) {
+		return T_TAG;
 	}
 	return T_INVALID;
 }
@@ -699,6 +728,9 @@ static bool parse_token(struct criteria *criteria, char *name, char *value) {
 		break;
 	case T_SANDBOX_INSTANCE_ID:
 		pattern_create(&criteria->sandbox_instance_id, value);
+		break;
+	case T_TAG:
+		pattern_create(&criteria->tag, value);
 		break;
 	case T_INVALID:
 		break;

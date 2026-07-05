@@ -2,6 +2,8 @@
 #include <ctype.h>
 #include <string.h>
 #include <strings.h>
+#include <wlr/types/wlr_ext_workspace_v1.h>
+#include "sway/tree/workspace.h"
 #include "sway/ipc-server.h"
 #include "sway/layers.h"
 #include "sway/output.h"
@@ -139,12 +141,11 @@ struct sway_output *output_create(struct wlr_output *wlr_output) {
 	output->detected_subpixel = wlr_output->subpixel;
 	output->scale_filter = SCALE_FILTER_NEAREST;
 
-	wl_signal_init(&output->events.disable);
-
 	wl_list_insert(&root->all_outputs, &output->link);
 
 	output->workspaces = create_list();
 	output->current.workspaces = create_list();
+	wl_list_init(&output->layer_surfaces);
 
 	return output;
 }
@@ -157,6 +158,7 @@ void output_enable(struct sway_output *output) {
 	output->enabled = true;
 	list_add(root->outputs, output);
 
+	sway_ext_workspace_output_enable(output);
 	restore_workspaces(output);
 
 	struct sway_workspace *ws = NULL;
@@ -287,7 +289,6 @@ void output_disable(struct sway_output *output) {
 	}
 
 	sway_log(SWAY_DEBUG, "Disabling output '%s'", output->wlr_output->name);
-	wl_signal_emit_mutable(&output->events.disable, output);
 
 	// Remove the output now to avoid interacting with it during e.g.,
 	// transactions, as the output might be physically removed with the scene
@@ -295,7 +296,9 @@ void output_disable(struct sway_output *output) {
 	list_del(root->outputs, index);
 	output->enabled = false;
 
+	destroy_layers(output);
 	output_evacuate(output);
+	sway_ext_workspace_output_disable(output);
 }
 
 void output_begin_destroy(struct sway_output *output) {
@@ -305,8 +308,8 @@ void output_begin_destroy(struct sway_output *output) {
 	sway_log(SWAY_DEBUG, "Destroying output '%s'", output->wlr_output->name);
 	wl_signal_emit_mutable(&output->node.events.destroy, &output->node);
 
-	output->node.destroying = true;
 	node_set_dirty(&output->node);
+	output->node.destroying = true;
 }
 
 struct sway_output *output_from_wlr_output(struct wlr_output *output) {
@@ -337,6 +340,10 @@ void output_add_workspace(struct sway_output *output,
 	}
 	list_add(output->workspaces, workspace);
 	workspace->output = output;
+	if (workspace->output && workspace->output->ext_workspace_group) {
+		wlr_ext_workspace_handle_v1_set_group(workspace->ext_workspace,
+			workspace->output->ext_workspace_group);
+	}
 	node_set_dirty(&output->node);
 	node_set_dirty(&workspace->node);
 }

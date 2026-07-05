@@ -16,8 +16,6 @@
 #include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_presentation_time.h>
 #include <wlr/types/wlr_compositor.h>
-#include <wlr/types/wlr_subcompositor.h>
-#include <wlr/types/wlr_xdg_shell.h>
 #include <wlr/util/region.h>
 #include <wlr/util/transform.h>
 #include "config.h"
@@ -36,10 +34,6 @@
 #include "sway/tree/root.h"
 #include "sway/tree/view.h"
 #include "sway/tree/workspace.h"
-
-#if WLR_HAS_XWAYLAND
-#include "sway/xwayland.h"
-#endif
 
 #if WLR_HAS_DRM_BACKEND
 #include <wlr/backend/drm.h>
@@ -103,11 +97,11 @@ struct buffer_timer {
 };
 
 static int handle_buffer_timer(void *data) {
-	struct wlr_scene_buffer *buffer = data;
+	struct wlr_scene_surface *scene_surface = data;
 
 	struct timespec now;
 	clock_gettime(CLOCK_MONOTONIC, &now);
-	wlr_scene_buffer_send_frame_done(buffer, &now);
+	wlr_scene_surface_send_frame_done(scene_surface, &now);
 	return 0;
 }
 
@@ -120,7 +114,9 @@ static void handle_buffer_timer_destroy(struct wl_listener *listener,
 	free(timer);
 }
 
-static struct buffer_timer *buffer_timer_get_or_create(struct wlr_scene_buffer *buffer) {
+static struct buffer_timer *buffer_timer_get_or_create(struct wlr_scene_surface *scene_surface) {
+	struct wlr_scene_buffer *buffer = scene_surface->buffer;
+
 	struct buffer_timer *timer =
 		scene_descriptor_try_get(&buffer->node, SWAY_SCENE_DESC_BUFFER_TIMER);
 	if (timer) {
@@ -133,7 +129,7 @@ static struct buffer_timer *buffer_timer_get_or_create(struct wlr_scene_buffer *
 	}
 
 	timer->frame_done_timer = wl_event_loop_add_timer(server.wl_event_loop,
-		handle_buffer_timer, buffer);
+		handle_buffer_timer, scene_surface);
 	if (!timer->frame_done_timer) {
 		free(timer);
 		return NULL;
@@ -154,6 +150,11 @@ static void send_frame_done_iterator(struct wlr_scene_buffer *buffer,
 	int view_max_render_time = 0;
 
 	if (buffer->primary_output != data->output->scene_output) {
+		return;
+	}
+
+	struct wlr_scene_surface *scene_surface = wlr_scene_surface_try_from_buffer(buffer);
+	if (scene_surface == NULL) {
 		return;
 	}
 
@@ -179,13 +180,13 @@ static void send_frame_done_iterator(struct wlr_scene_buffer *buffer,
 	struct buffer_timer *timer = NULL;
 
 	if (output->max_render_time != 0 && view_max_render_time != 0 && delay > 0) {
-		timer = buffer_timer_get_or_create(buffer);
+		timer = buffer_timer_get_or_create(scene_surface);
 	}
 
 	if (timer) {
 		wl_event_source_timer_update(timer->frame_done_timer, delay);
 	} else {
-		wlr_scene_buffer_send_frame_done(buffer, &data->when);
+		wlr_scene_surface_send_frame_done(scene_surface, &data->when);
 	}
 }
 

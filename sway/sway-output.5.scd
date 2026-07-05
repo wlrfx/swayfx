@@ -178,9 +178,19 @@ must be separated by one space. For example:
 	updated to work with different bit depths. This command is experimental,
 	and may be removed or changed in the future.
 
-*output* <name> color_profile srgb|[icc <file>]
-	Sets the color profile for an output. The default is _srgb_. <file> should be a
-	path to a display ICC profile.
+*output* <name> color_profile [--device-primaries] gamma22|srgb
+	Sets the color profile for an output. The default is _gamma22_.
+
+	_--device-primaries_ will use the output's self-reported color primaries
+	when available (e.g. from display EDID).
+
+	Not all renderers support this feature; currently it only works with the
+	the Vulkan renderer. It is not compatible with HDR support features.
+
+*output* <name> color_profile icc <file>
+	Sets the color profile for an output.
+
+	<file> should be a path to a display ICC profile.
 
 	Not all renderers support this feature; currently it only works with the
 	the Vulkan renderer. Even where supported, the application of the color
@@ -196,9 +206,9 @@ must be separated by one space. For example:
 	screen tearing is allowed.
 
 	With immediate page flips, frames from the client are presented as soon
-	as possible instead of synchronizing with the monitor's vblank interval 
-	(VSync). 
-	
+	as possible instead of synchronizing with the monitor's vblank interval
+	(VSync).
+
 	It is recommended to set *max_render_time* to *off*. In that case a page flip
 	happens as soon as a client updates. Otherwise, tearing will only happen if
 	rendering takes longer than the configured milliseconds before the next
@@ -209,6 +219,17 @@ must be separated by one space. For example:
 	when it's allowed for both the output and the application.
 
 	This setting only has effect when a window is fullscreen on the output.
+
+*output* <name> hdr on|off|toggle
+	Enables or disables HDR (High Dynamic Range). HDR enables a larger color
+	gamut and brightness range. HDR uses the BT2020 primaries and the PQ
+	transfer function.
+
+	When HDR is enabled, _render_bit_depth_ is implicitly set to 10 unless
+	explicitly configured. Using a lower render bit depth may result in color
+	banding artifacts.
+
+	HDR needs to be supported by the output and renderer to be enabled.
 
 # SEE ALSO
 

@@ -3,14 +3,12 @@
 #include <stdbool.h>
 #include <wlr/types/wlr_compositor.h>
 #include <wlr/types/wlr_layer_shell_v1.h>
-#include "sway/layer_criteria.h"
 #include "sway/tree/view.h"
 
 struct sway_layer_surface {
 	struct wl_listener map;
 	struct wl_listener unmap;
 	struct wl_listener surface_commit;
-	struct wl_listener output_destroy;
 	struct wl_listener node_destroy;
 	struct wl_listener new_popup;
 
@@ -20,17 +18,21 @@ struct sway_layer_surface {
 	struct sway_popup_desc desc;
 
 	struct sway_output *output;
-	struct wlr_scene_layer_surface_v1 *scene;
-	struct wlr_scene_tree *tree;
+
 	struct wlr_scene_blur *blur_node;
 	struct wlr_scene_shadow *shadow_node;
-	struct wlr_layer_surface_v1 *layer_surface;
 
 	bool shadow_enabled;
 	bool blur_enabled;
 	bool blur_xray;
 	bool blur_ignore_transparent;
 	int corner_radius;
+
+	struct wl_list link; // sway_output.layer_surfaces
+
+	struct wlr_scene_layer_surface_v1 *scene;
+	struct wlr_scene_tree *tree;
+	struct wlr_layer_surface_v1 *layer_surface;
 };
 
 struct sway_layer_popup {
@@ -41,6 +43,7 @@ struct sway_layer_popup {
 	struct wl_listener destroy;
 	struct wl_listener new_popup;
 	struct wl_listener commit;
+	struct wl_listener reposition;
 };
 
 struct sway_output;
@@ -51,5 +54,7 @@ struct wlr_layer_surface_v1 *toplevel_layer_surface_from_surface(
 void arrange_layers(struct sway_output *output);
 
 void layer_apply_criteria(struct sway_layer_surface *surface, struct layer_criteria *criteria);
+
+void destroy_layers(struct sway_output *output);
 
 #endif
