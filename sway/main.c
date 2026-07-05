@@ -118,16 +118,6 @@ static void restore_nofile_limit(void) {
 	}
 }
 
-static void restore_nofile_limit(void) {
-	if (original_nofile_rlimit.rlim_cur == 0) {
-		return;
-	}
-	if (setrlimit(RLIMIT_NOFILE, &original_nofile_rlimit) != 0) {
-		sway_log_errno(SWAY_ERROR, "Failed to restore max open files limit: "
-			"setrlimit(NOFILE) failed");
-	}
-}
-
 static void increase_nofile_limit(void) {
 	if (getrlimit(RLIMIT_NOFILE, &original_nofile_rlimit) != 0) {
 		sway_log_errno(SWAY_ERROR, "Failed to bump max open files limit: "
@@ -286,11 +276,6 @@ int main(int argc, char **argv) {
 			fprintf(stderr, "%s", usage);
 			exit(EXIT_FAILURE);
 		}
-	}
-
-	// SUID operation is deprecated, so block it for now.
-	if (detect_suid()) {
-		exit(EXIT_FAILURE);
 	}
 
 	// Since wayland requires XDG_RUNTIME_DIR to be set, abort with just the

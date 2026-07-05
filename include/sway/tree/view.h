@@ -243,6 +243,8 @@ const char *view_get_sandbox_app_id(struct sway_view *view);
 
 const char *view_get_sandbox_instance_id(struct sway_view *view);
 
+const char *view_get_tag(struct sway_view *view);
+
 const char *view_get_shell(struct sway_view *view);
 
 void view_get_constraints(struct sway_view *view, double *min_width,
