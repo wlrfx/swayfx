@@ -1,11 +1,11 @@
 #include <float.h>
-#include <scenefx/types/wlr_scene.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <wayland-server-core.h>
 #include <wlr/types/wlr_output_layout.h>
 #include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_xdg_activation_v1.h>
+#include <wlr/types/wlr_scene.h>
 #include <wlr/xwayland.h>
 #include <xcb/xcb_icccm.h>
 #include "log.h"
@@ -629,28 +629,6 @@ static void handle_request_minimize(struct wl_listener *listener, void *data) {
 	}
 
 	struct wlr_xwayland_minimize_event *e = data;
-	if (config->scratchpad_minimize) {
-		struct sway_container *container = view->container;
-		if (!container->pending.workspace) {
-			while (container->pending.parent) {
-				container = container->pending.parent;
-			}
-		}
-		if(e->minimize) {
-			if (!container->scratchpad) {
-				root_scratchpad_add_container(container, NULL);
-			} else if (container->pending.workspace) {
-				root_scratchpad_hide(container);
-			}
-		} else {
-			if(container->scratchpad) {
-				root_scratchpad_show(container);
-			}
-		}
-		transaction_commit_dirty();
-		return;
-	}
-
 	struct sway_seat *seat = input_manager_current_seat();
 	bool focused = seat_get_focus(seat) == &view->container->node;
 	wlr_xwayland_surface_set_minimized(xsurface, !focused && e->minimize);
@@ -736,31 +714,6 @@ static void handle_set_role(struct wl_listener *listener, void *data) {
 	}
 	view_execute_criteria(view);
 	transaction_commit_dirty();
-}
-
-static void handle_set_startup_id(struct wl_listener *listener, void *data) {
-	struct sway_xwayland_view *xwayland_view =
-		wl_container_of(listener, xwayland_view, set_startup_id);
-	struct sway_view *view = &xwayland_view->view;
-	struct wlr_xwayland_surface *xsurface = view->wlr_xwayland_surface;
-	if (xsurface->startup_id == NULL) {
-		return;
-	}
-
-	struct wlr_xdg_activation_token_v1 *token =
-		wlr_xdg_activation_v1_find_token(
-				server.xdg_activation_v1, xsurface->startup_id);
-	if (token == NULL) {
-		// Tried to activate with an unknown or expired token
-		return;
-	}
-
-	struct launcher_ctx *ctx = token->data;
-	if (token->data == NULL) {
-		// TODO: support external launchers in X
-		return;
-	}
-	view_assign_ctx(view, ctx);
 }
 
 static void handle_set_startup_id(struct wl_listener *listener, void *data) {
@@ -973,3 +926,4 @@ void handle_xwayland_ready(struct wl_listener *listener, void *data) {
 
 	xcb_disconnect(xcb_conn);
 }
+

@@ -605,54 +605,9 @@ static uint32_t render_binding_mode_indicator(struct render_context *ctx,
 		return 0;
 	}
 
-	cairo_t *cairo = ctx->cairo;
-	struct swaybar_config *config = output->bar->config;
-	int text_width, text_height;
-	get_text_size(cairo, config->font_description, &text_width, &text_height, NULL,
-			1, output->bar->mode_pango_markup,
-			"%s", mode);
-
-	int ws_vertical_padding = WS_VERTICAL_PADDING;
-	int ws_horizontal_padding = WS_HORIZONTAL_PADDING;
-	int border_width = BORDER_WIDTH;
-
-	uint32_t ideal_height = text_height + ws_vertical_padding * 2
-		+ border_width * 2;
-	uint32_t ideal_surface_height = ideal_height;
-	if (!output->bar->config->height &&
-			output->height < ideal_surface_height) {
-		return ideal_surface_height;
-	}
-	uint32_t width = text_width + ws_horizontal_padding * 2 + border_width * 2;
-	if (width < config->workspace_min_width) {
-		width = config->workspace_min_width;
-	}
-
-	uint32_t height = output->height;
-	cairo_set_operator(cairo, CAIRO_OPERATOR_SOURCE);
-	cairo_set_source_u32(cairo, config->colors.binding_mode.background);
-	ctx->background_color = config->colors.binding_mode.background;
-	ctx->has_transparency |= (config->colors.binding_mode.background & 0xFF) != 0xFF;
-	cairo_rectangle(cairo, x, 0, width, height);
-	cairo_fill(cairo);
-
-	cairo_set_source_u32(cairo, config->colors.binding_mode.border);
-	cairo_rectangle(cairo, x, 0, width, border_width);
-	cairo_fill(cairo);
-	cairo_rectangle(cairo, x, 0, border_width, height);
-	cairo_fill(cairo);
-	cairo_rectangle(cairo, x + width - border_width, 0, border_width, height);
-	cairo_fill(cairo);
-	cairo_rectangle(cairo, x, height - border_width, width, border_width);
-	cairo_fill(cairo);
-
-	double text_y = height / 2.0 - text_height / 2.0;
-	cairo_set_source_u32(cairo, config->colors.binding_mode.text);
-	cairo_move_to(cairo, x + width / 2 - text_width / 2, (int)floor(text_y));
-	choose_text_aa_mode(ctx, config->colors.binding_mode.text);
-	render_text(cairo, config->font_description, 1, output->bar->mode_pango_markup,
-			"%s", mode);
-	return output->height;
+	struct box_size size = render_box(ctx, x, output->bar->config->colors.binding_mode,
+			mode, output->bar->mode_pango_markup);
+	return size.height;
 }
 
 static enum hotspot_event_handling workspace_hotspot_callback(
@@ -686,53 +641,8 @@ static uint32_t render_workspace_button(struct render_context *ctx,
 		box_colors = config->colors.inactive_workspace;
 	}
 
-	uint32_t height = output->height;
-
-	cairo_t *cairo = ctx->cairo;
-	int text_width, text_height;
-	get_text_size(cairo, config->font_description, &text_width, &text_height, NULL,
-			1, config->pango_markup, "%s", ws->label);
-
-	int ws_vertical_padding = WS_VERTICAL_PADDING;
-	int ws_horizontal_padding = WS_HORIZONTAL_PADDING;
-	int border_width = BORDER_WIDTH;
-
-	uint32_t ideal_height = ws_vertical_padding * 2 + text_height
-		+ border_width * 2;
-	uint32_t ideal_surface_height = ideal_height;
-	if (!output->bar->config->height &&
-			output->height < ideal_surface_height) {
-		return ideal_surface_height;
-	}
-
-	uint32_t width = text_width + ws_horizontal_padding * 2 + border_width * 2;
-	if (width < config->workspace_min_width) {
-		width = config->workspace_min_width;
-	}
-
-	cairo_set_operator(cairo, CAIRO_OPERATOR_SOURCE);
-	cairo_set_source_u32(cairo, box_colors.background);
-	ctx->background_color = box_colors.background;
-	ctx->has_transparency |= (box_colors.background & 0xFF) != 0xFF;
-	cairo_rectangle(cairo, *x, 0, width, height);
-	cairo_fill(cairo);
-
-	cairo_set_source_u32(cairo, box_colors.border);
-	cairo_rectangle(cairo, *x, 0, width, border_width);
-	cairo_fill(cairo);
-	cairo_rectangle(cairo, *x, 0, border_width, height);
-	cairo_fill(cairo);
-	cairo_rectangle(cairo, *x + width - border_width, 0, border_width, height);
-	cairo_fill(cairo);
-	cairo_rectangle(cairo, *x, height - border_width, width, border_width);
-	cairo_fill(cairo);
-
-	double text_y = height / 2.0 - text_height / 2.0;
-	cairo_set_source_u32(cairo, box_colors.text);
-	cairo_move_to(cairo, *x + width / 2 - text_width / 2, (int)floor(text_y));
-	choose_text_aa_mode(ctx, box_colors.text);
-	render_text(cairo, config->font_description, 1, config->pango_markup,
-			"%s", ws->label);
+	struct box_size size = render_box(ctx, *x, box_colors,
+			ws->label, config->pango_markup);
 
 	struct swaybar_hotspot *hotspot = calloc(1, sizeof(struct swaybar_hotspot));
 	hotspot->x = *x;
@@ -922,3 +832,4 @@ cleanup:
 	cairo_surface_destroy(recorder);
 	cairo_destroy(cairo);
 }
+
