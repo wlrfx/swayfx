@@ -586,11 +586,6 @@ void container_begin_destroy(struct sway_container *con) {
 		container_detach(con);
 	}
 
-	if (con->view && con->view->container == con) {
-		wl_list_remove(&con->output_enter.link);
-		wl_list_remove(&con->output_leave.link);
-		wl_list_remove(&con->output_handler_destroy.link);
-	}
 	if (con->animation_state.animation->initialized) {
 		con->animation_state.animation->initialized = false;
 		wl_list_remove(&con->animation_state.animation->link);
