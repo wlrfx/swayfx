@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <wlr/types/wlr_compositor.h>
 #include <wlr/types/wlr_layer_shell_v1.h>
+#include "sway/layer_criteria.h"
 #include "sway/tree/view.h"
 
 struct sway_layer_surface {

@@ -53,6 +53,32 @@ struct wlr_layer_surface_v1 *toplevel_layer_surface_from_surface(
 	} while (true);
 }
 
+void layer_apply_criteria(struct sway_layer_surface *surface, struct layer_criteria *criteria) {
+	if (criteria) {
+		surface->corner_radius = criteria->corner_radius;
+		surface->blur_enabled = criteria->blur_enabled;
+		surface->blur_xray = criteria->blur_xray;
+		surface->blur_ignore_transparent = criteria->blur_ignore_transparent;
+		surface->shadow_enabled = criteria->shadow_enabled;
+	} else {
+		// Reset
+		surface->corner_radius = 0;
+		surface->blur_enabled = false;
+		surface->blur_xray = false;
+		surface->blur_ignore_transparent = false;
+		surface->shadow_enabled = false;
+	}
+}
+
+static void layer_parse_criteria(struct sway_layer_surface *surface) {
+	if (!surface || !surface->layer_surface
+			|| surface->layer_surface->current.layer < ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM) {
+		return;
+	}
+	struct layer_criteria *criteria = layer_criteria_for_namespace(surface->layer_surface->namespace);
+	layer_apply_criteria(surface, criteria);
+}
+
 static void arrange_surface(struct sway_output *output, const struct wlr_box *full_area,
 		struct wlr_box *usable_area, struct wlr_scene_tree *tree, bool exclusive) {
 	struct wlr_scene_node *node;
@@ -70,6 +96,32 @@ static void arrange_surface(struct sway_output *output, const struct wlr_box *fu
 
 		if ((surface->scene->layer_surface->current.exclusive_zone > 0) != exclusive) {
 			continue;
+		}
+
+		wlr_scene_node_set_enabled(&surface->blur_node->node, surface->blur_enabled);
+		wlr_scene_blur_set_size(surface->blur_node, surface->layer_surface->surface->current.width,
+			surface->layer_surface->surface->current.height);
+
+		wlr_scene_node_set_enabled(&surface->shadow_node->node, surface->shadow_enabled);
+
+		if (surface->shadow_enabled) {
+			// Adjust the size and position of the shadow node
+			wlr_scene_shadow_set_size(surface->shadow_node,
+					surface->layer_surface->surface->current.width + config->shadow_blur_sigma * 2,
+					surface->layer_surface->surface->current.height + config->shadow_blur_sigma * 2);
+			int x = config->shadow_offset_x - config->shadow_blur_sigma;
+			int y = config->shadow_offset_y - config->shadow_blur_sigma;
+			wlr_scene_node_set_position(&surface->shadow_node->node, x, y);
+
+			wlr_scene_shadow_set_clipped_region(surface->shadow_node, (struct clipped_region) {
+					.corners = corner_radii_all(surface->corner_radius),
+					.area = {
+						.x = -x,
+						.y = -y,
+						.width = surface->layer_surface->surface->current.width,
+						.height = surface->layer_surface->surface->current.height,
+					},
+			});
 		}
 
 		wlr_scene_layer_surface_v1_configure(surface->scene, full_area, usable_area);
