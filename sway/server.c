@@ -274,18 +274,6 @@ bool server_init(struct sway_server *server) {
 	}
 
 	wlr_multi_for_each_backend(server->backend, detect_proprietary, NULL);
-
-	wl_display_set_global_filter(server->wl_display, filter_global, NULL);
-	wl_display_set_default_max_buffer_size(server->wl_display, 1024 * 1024);
-
-	root = root_create(server->wl_display);
-
-	server->backend = wlr_backend_autocreate(server->wl_event_loop, &server->session);
-	if (!server->backend) {
-		sway_log(SWAY_ERROR, "Unable to create backend");
-		return false;
-	}
-
 	wlr_multi_for_each_backend(server->backend, detect_proprietary, NULL);
 
 	server->renderer = fx_renderer_create(server->backend);

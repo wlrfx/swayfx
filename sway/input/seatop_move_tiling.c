@@ -488,6 +488,7 @@ void seatop_begin_move_tiling_threshold(struct sway_seat *seat,
 
 	e->indicator_rect = wlr_scene_rect_create(seat->scene_tree, 0, 0, color);
 	if (!e->indicator_rect) {
+		wlr_scene_node_destroy(&e->indicator_blur->node);
 		free(e);
 		return;
 	}

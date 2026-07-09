@@ -1075,6 +1075,13 @@ static bool apply_resolved_output_configs(struct matched_output_config *configs,
 
 	for (size_t idx = 0; idx < configs_len; idx++) {
 		struct matched_output_config *cfg = &configs[idx];
+
+		// since everything got moved around, mark the optimized blur as dirty
+		// this is to catch e.g. the output transform since it directly picks things up from the fbo
+		if (cfg->output->layers.blur_layer) {
+			cfg->output->layers.blur_layer->dirty = true;
+		}
+
 		struct wlr_backend_output_state *backend_state = &states[idx];
 		struct config_output_state *config_state = &config_states[idx];
 		sway_log(SWAY_DEBUG, "Finalizing config for %s",
