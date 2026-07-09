@@ -423,7 +423,6 @@ void container_arrange_title_bar(struct sway_container *con) {
 	wlr_scene_rect_set_corner_radii(con->title_bar.background, corners);
 	wlr_scene_rect_set_clipped_region(con->title_bar.background, (struct clipped_region) {
 			.corners = {0},
-			// TODO: do I need to subtract thickness
 			.area = {
 				.x = pixman_region32_extents(&text_area)->x1 - thickness,
 				.y = pixman_region32_extents(&text_area)->y1 - thickness,
