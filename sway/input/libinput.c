@@ -272,10 +272,6 @@ bool sway_input_configure_libinput_device(struct sway_input_device *input_device
 	}
 	if (ic->drag_lock != INT_MIN) {
 		changed |= set_tap_drag_lock(device, ic->drag_lock);
-	} else {
-#if HAVE_LIBINPUT_CONFIG_DRAG_LOCK_ENABLED_STICKY
-		changed |= set_tap_drag_lock(device, LIBINPUT_CONFIG_DRAG_LOCK_ENABLED_STICKY);
-#endif
 	}
 	if (ic->pointer_accel != FLT_MIN) {
 		changed |= set_accel_speed(device, ic->pointer_accel);

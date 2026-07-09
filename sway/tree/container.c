@@ -92,12 +92,6 @@ struct sway_container *container_create(struct sway_view *view) {
 		c->dim_rect = alloc_rect_node(c->border.tree, &failed);
 		// Disable rect input
 		c->dim_rect->accepts_input = false;
-
-		c->output_handler = wlr_scene_buffer_create(c->border.tree, NULL);
-		if (!c->output_handler) {
-			sway_log(SWAY_ERROR, "Failed to allocate a scene node");
-			failed = true;
-		}
 	}
 
 	if (!failed && !scene_descriptor_assign(&c->scene_tree->node,
