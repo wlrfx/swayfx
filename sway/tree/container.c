@@ -425,8 +425,8 @@ void container_arrange_title_bar(struct sway_container *con) {
 			.corners = {0},
 			// TODO: do I need to subtract thickness
 			.area = {
-				.x = pixman_region32_extents(&text_area)->x1,
-				.y = pixman_region32_extents(&text_area)->y1,
+				.x = pixman_region32_extents(&text_area)->x1 - thickness,
+				.y = pixman_region32_extents(&text_area)->y1 - thickness,
 				.width = pixman_region32_extents(&text_area)->x2 - pixman_region32_extents(&text_area)->x1,
 				.height = pixman_region32_extents(&text_area)->y2 - pixman_region32_extents(&text_area)->y1,
 			},
