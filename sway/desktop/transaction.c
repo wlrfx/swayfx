@@ -493,10 +493,6 @@ static void _arrange_container(struct sway_container *con,
 	// make sure it's enabled for viewing
 	wlr_scene_node_set_enabled(&con->scene_tree->node, true);
 
-	if (con->output_handler) {
-		wlr_scene_buffer_set_dest_size(con->output_handler, width, height);
-	}
-
 	bool has_corner_radius = container_has_corner_radius(con);
 
 	if (container_has_shadow(con)) {
