@@ -38,8 +38,7 @@ struct cmd_results *cmd_opacity(int argc, char **argv) {
 	}
 
 	con->alpha = val;
-	output_configure_scene(NULL, &con->scene_tree->node,
-			false, NULL);
+	output_configure_scene(NULL, &con->scene_tree->node, false, NULL);
 	container_update(con);
 
 	return cmd_results_new(CMD_SUCCESS, NULL);
