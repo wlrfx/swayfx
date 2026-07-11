@@ -1298,6 +1298,7 @@ static void view_save_buffer_iterator(struct wlr_scene_buffer *buffer,
 	wlr_scene_buffer_set_transform(sbuf, buffer->transform);
 	wlr_scene_buffer_set_buffer(sbuf, buffer->buffer);
 	wlr_scene_buffer_set_corner_radii(sbuf, buffer->corners);
+
 }
 
 void view_save_buffer(struct sway_view *view) {
