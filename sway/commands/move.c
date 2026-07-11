@@ -777,7 +777,9 @@ static struct cmd_results *cmd_move_to_position_pointer(
 }
 
 static const char expected_position_syntax[] =
-	"Expected 'move [absolute] position <x> [px] <y> [px]' or "
+	"Expected "
+	"'move [absolute] position [left|right] <x> [px|ppt] [top|bottom] <y> [px|ppt]' "
+	"or "
 	"'move [absolute] position center' or "
 	"'move position cursor|mouse|pointer'";
 
@@ -793,6 +795,8 @@ static struct cmd_results *cmd_move_to_position(int argc, char **argv) {
 	}
 
 	bool absolute = false;
+	bool right = false;
+	bool bottom = false;
 	if (strcmp(argv[0], "absolute") == 0) {
 		absolute = true;
 		--argc;
@@ -832,6 +836,16 @@ static struct cmd_results *cmd_move_to_position(int argc, char **argv) {
 		return cmd_results_new(CMD_SUCCESS, NULL);
 	}
 
+	// If we reach here, we are expecting a specific numeric position.
+	// First check if there is a left/right keyword:
+	bool isLeft = argc > 0 && strcmp(argv[0], "left") == 0;
+	bool isRight = argc > 0 && strcmp(argv[0], "right") == 0;
+	if (isLeft || isRight) {
+		right = isRight;
+		--argc;
+		++argv;
+	}
+
 	if (argc < 2) {
 		return cmd_results_new(CMD_FAILURE, "%s", expected_position_syntax);
 	}
@@ -843,6 +857,15 @@ static struct cmd_results *cmd_move_to_position(int argc, char **argv) {
 	argv += num_consumed_args;
 	if (lx.unit == MOVEMENT_UNIT_INVALID) {
 		return cmd_results_new(CMD_INVALID, "Invalid x position specified");
+	}
+
+	// Now check if there is a top/bottom keyword:
+	bool isTop = argc > 0 && strcmp(argv[0], "top") == 0;
+	bool isBottom = argc > 0 && strcmp(argv[0], "bottom") == 0;
+	if (isTop || isBottom) {
+		bottom = isBottom;
+		--argc;
+		++argv;
 	}
 
 	if (argc < 1) {
@@ -910,6 +933,25 @@ static struct cmd_results *cmd_move_to_position(int argc, char **argv) {
 		sway_assert(false, "invalid y unit");
 		break;
 	}
+
+	// Adjust movement amounts for right and bottom offsets if need be:
+	if (right) {
+		if (absolute) {
+			lx.amount = root->x + root->width - lx.amount
+				- container->pending.width;
+		} else {
+			lx.amount = ws->width - lx.amount - container->pending.width;
+		}
+	}
+	if (bottom) {
+		if (absolute) {
+			ly.amount = root->y + root->height - ly.amount
+				- container->pending.height;
+		} else {
+			ly.amount = ws->height - ly.amount - container->pending.height;
+		}
+	}
+
 	if (!absolute) {
 		lx.amount += ws->x;
 		ly.amount += ws->y;
