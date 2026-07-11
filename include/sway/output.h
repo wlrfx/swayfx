@@ -95,8 +95,8 @@ struct sway_output *output_get_in_direction(struct sway_output *reference,
 		enum wlr_direction direction);
 
 void output_configure_scene(struct sway_output *output,
-	struct wlr_scene_node *node, float opacity, int corner_radius,
-	bool has_titlebar, struct sway_container *closest_con);
+	struct wlr_scene_node *node, bool has_titlebar,
+	struct sway_container *closest_con);
 
 void output_add_workspace(struct sway_output *output,
 		struct sway_workspace *workspace);
