@@ -267,7 +267,7 @@ void output_configure_scene(struct sway_output *output, struct wlr_scene_node *n
 	}
 
 	float opacity = closest_con ? get_animated_value(closest_con->animation_state.from_alpha,
-		closest_con->animation_state.to_alpha, closest_con->animation_state.animation) : 1.0f;
+		closest_con->animation_state.to_alpha, &closest_con->animation_state.animation) : 1.0f;
 	int corner_radius = closest_con && container_has_corner_radius(closest_con) ?
 		closest_con->corner_radius : 0;
 
@@ -306,8 +306,8 @@ void output_configure_scene(struct sway_output *output, struct wlr_scene_node *n
 		}
 
 		has_titlebar &= !(surface && surface->surface && wlr_subsurface_try_from_wlr_surface(surface->surface));
-		wlr_scene_buffer_set_corner_radii(buffer, has_titlebar ? corner_radii_bottom(corner_radius) :
-				corner_radii_all(corner_radius));
+		wlr_scene_buffer_set_corner_radii(buffer, has_titlebar ?
+			corner_radii_bottom(corner_radius) : corner_radii_all(corner_radius));
 		
 		int content_width = closest_con->animation_state.current_content_width;
 		int content_height = closest_con->animation_state.current_content_height;
@@ -319,10 +319,8 @@ void output_configure_scene(struct sway_output *output, struct wlr_scene_node *n
 		wlr_scene_blur_set_should_only_blur_bottom_layer(blur, should_optimize_blur);
 		wlr_scene_blur_set_strength(blur, opacity);
 		wlr_scene_node_set_enabled(node, closest_con->blur_enabled);
-		wlr_scene_blur_set_corner_radii(
-			blur,
-			has_titlebar ? corner_radii_bottom(corner_radius) : corner_radii_all(corner_radius)
-		);
+		wlr_scene_blur_set_corner_radii(blur, has_titlebar ?
+			corner_radii_bottom(corner_radius) : corner_radii_all(corner_radius));
 	}
 }
 
