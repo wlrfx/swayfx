@@ -692,7 +692,11 @@ static void _arrange_container(struct sway_container *con,
 
 static void arrange_container(struct sway_container *con,
 		int width, int height, int x, int y, bool title_bar, int gaps) {
-	if (!config->animation_duration_ms || !con->view) {
+	if (!config->animation_duration_ms || !con->view
+			|| con->animation_state.seat_is_resizing
+			|| con->animation_state.seat_is_moving_float) {
+		finish_animation(&con->animation_state.animation);
+
 		_arrange_container(con, width, height, x, y, title_bar, gaps);
 		return;
 	}

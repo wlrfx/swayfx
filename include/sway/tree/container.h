@@ -169,6 +169,9 @@ struct sway_container {
 		int current_height;
 		int current_content_width; // needed for output.c
 		int current_content_height; // needed for output.c
+
+		bool seat_is_resizing;
+		bool seat_is_moving_float;
 	} animation_state;
 
 	list_t *marks; // char *

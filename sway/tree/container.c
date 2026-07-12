@@ -137,6 +137,8 @@ struct sway_container *container_create(struct sway_view *view) {
 	c->animation_state.current_height = 0;
 	c->animation_state.current_content_width = -1;
 	c->animation_state.current_content_height = -1;
+	c->animation_state.seat_is_resizing = false;
+	c->animation_state.seat_is_moving_float = false;
 
 	wl_signal_init(&c->events.destroy);
 	wl_signal_emit_mutable(&root->events.new_node, &c->node);
@@ -1014,6 +1016,8 @@ void container_set_resizing(struct sway_container *con, bool resizing) {
 		return;
 	}
 
+	con->animation_state.seat_is_resizing = resizing;
+
 	if (con->view) {
 		if (con->view->impl->set_resizing) {
 			con->view->impl->set_resizing(con->view, resizing);
@@ -1030,6 +1034,9 @@ void container_set_floating(struct sway_container *container, bool enable) {
 	if (container_is_floating(container) == enable) {
 		return;
 	}
+
+	container->animation_state.seat_is_moving_float = false;
+	container->animation_state.seat_is_resizing = false;
 
 	struct sway_seat *seat = input_manager_current_seat();
 	struct sway_workspace *workspace = container->pending.workspace;
