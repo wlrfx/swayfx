@@ -274,7 +274,6 @@ bool server_init(struct sway_server *server) {
 	}
 
 	wlr_multi_for_each_backend(server->backend, detect_proprietary, NULL);
-	wlr_multi_for_each_backend(server->backend, detect_proprietary, NULL);
 
 	server->renderer = fx_renderer_create(server->backend);
 	if (!server->renderer) {
