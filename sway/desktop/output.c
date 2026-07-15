@@ -301,14 +301,22 @@ void output_configure_scene(struct sway_output *output, struct wlr_scene_node *n
 			return;
 		}
 
+		if (!surface && !scene_descriptor_try_get(&buffer->node, SWAY_SCENE_DESC_SAVED_BUFFER)) {
+			return;
+		}
+
 		if (!closest_con) {
 			return;
 		}
 
-		has_titlebar &= !(surface && surface->surface && wlr_subsurface_try_from_wlr_surface(surface->surface));
-		wlr_scene_buffer_set_corner_radii(buffer, has_titlebar ?
+		bool is_subsurface = surface && surface->surface && wlr_subsurface_try_from_wlr_surface(surface->surface);
+		wlr_scene_buffer_set_corner_radii(buffer, has_titlebar && !is_subsurface ?
 			corner_radii_bottom(corner_radius) : corner_radii_all(corner_radius));
 		
+		if (is_subsurface) {
+			return;
+		}
+
 		int content_width = closest_con->animation_state.current_content_width;
 		int content_height = closest_con->animation_state.current_content_height;
 		wlr_scene_buffer_set_dest_size(buffer, MAX(content_width, 0), MAX(content_height, 0));
