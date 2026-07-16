@@ -57,8 +57,8 @@ struct sway_workspace {
 
 	struct {
 		struct animation animation;
-		int slide_x_from;
-		int slide_x_to;
+		float from_alpha;
+		float to_alpha;
 	} animation_state;
 };
 

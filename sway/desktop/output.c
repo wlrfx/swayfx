@@ -268,6 +268,12 @@ void output_configure_scene(struct sway_output *output, struct wlr_scene_node *n
 
 	float opacity = closest_con ? get_animated_value(closest_con->animation_state.from_alpha,
 		closest_con->animation_state.to_alpha, &closest_con->animation_state.animation) : 1.0f;
+	if (closest_con && closest_con->current.workspace) {
+		opacity *= get_animated_value(
+			closest_con->current.workspace->animation_state.from_alpha,
+			closest_con->current.workspace->animation_state.to_alpha,
+			&closest_con->current.workspace->animation_state.animation);
+	}
 	int corner_radius = closest_con && container_has_corner_radius(closest_con) ?
 		closest_con->corner_radius : 0;
 

@@ -222,6 +222,8 @@ struct sway_workspace *workspace_create(struct sway_output *output,
 	ws->output_priority = create_list();
 
 	ws->animation_state.animation = init_animation(ws);
+	ws->animation_state.from_alpha = 1.0f;
+	ws->animation_state.to_alpha = 1.0f;
 
 	ws->gaps_outer = config->gaps_outer;
 	ws->gaps_inner = config->gaps_inner;
