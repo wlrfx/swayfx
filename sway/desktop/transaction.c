@@ -895,29 +895,24 @@ static void arrange_output(struct sway_output *output, int width, int height) {
 		!(old_active->current.fullscreen || new_active->current.fullscreen);
 
 	if (is_ws_switch) {
+		new_active->animation_state.from_alpha = 0.0f;
+
 		if (old_active->current.tiling->length == 0
 				&& old_active->current.floating->length == 0) {
-			new_active->animation_state.from_alpha = 0.0f;
 			new_active->animation_state.to_alpha = 1.0f;
 			add_animation(&new_active->animation_state.animation,
 				workspace_fade_update_callback, NULL);
 		} else {
-			float current_alpha = old_active->animation_state.animation.initialized
-				? get_animated_value(old_active->animation_state.from_alpha,
-					old_active->animation_state.to_alpha,
-					&old_active->animation_state.animation)
-				: 1.0f;
-
+			new_active->animation_state.to_alpha = 0.0f;
+			float current_alpha = get_animated_value(old_active->animation_state.from_alpha,
+				old_active->animation_state.to_alpha, &old_active->animation_state.animation);
 			old_active->animation_state.from_alpha = current_alpha;
 			old_active->animation_state.to_alpha = 0.0f;
 
-			new_active->animation_state.from_alpha = 0.0f;
-			new_active->animation_state.to_alpha = 0.0f;
 			finish_animation(&new_active->animation_state.animation);
 
 			add_animation(&old_active->animation_state.animation,
-				workspace_fade_update_callback,
-				workspace_fade_complete_callback);
+				workspace_fade_update_callback, workspace_fade_complete_callback);
 		}
 	}
 
@@ -930,8 +925,8 @@ static void arrange_output(struct sway_output *output, int width, int height) {
 		wlr_scene_node_reparent(&child->layers.tiling->node, output->layers.tiling);
 		wlr_scene_node_reparent(&child->layers.fullscreen->node, output->layers.fullscreen);
 
-		for (int ii = 0; ii < child->current.floating->length; ii++) {
-			struct sway_container *floater = child->current.floating->items[ii];
+		for (int i = 0; i < child->current.floating->length; i++) {
+			struct sway_container *floater = child->current.floating->items[i];
 			wlr_scene_node_reparent(&floater->scene_tree->node, root->layers.floating);
 			wlr_scene_node_set_enabled(&floater->scene_tree->node, activated || animating);
 		}
