@@ -46,7 +46,7 @@ submitting.
 
 ## Commit Messages
 
-Please strive to write good commit messages. Here's some guidelines to follow:
+Please strive to write good commit messages. Here are some guidelines to follow:
 
 The first line should be limited to 50 characters and should be a sentence that
 completes the thought [When applied, this commit will...] *"Implement
@@ -55,7 +55,7 @@ or similar.
 
 The subsequent lines should be separated from the subject line by a single
 blank line, and include optional details. In this you can give justification
-for the change, [reference Github
+for the change, [reference GitHub
 issues](https://help.github.com/articles/closing-issues-via-commit-messages/),
 or explain some of the subtler details of your patch. This is important because
 when someone finds a line of code they don't understand later, they can use the
