@@ -98,6 +98,10 @@ static void close_anim_complete_callback(void *data) {
 }
 
 static void _fade_container_update(struct sway_container *con, void *data) {
+	// skip redundant update if the container is also being animated
+	if (con->animation_state.animation.initialized) {
+		return;
+	}
 	container_update(con);
 }
 
@@ -106,6 +110,7 @@ static void workspace_fade_update_callback(void *data) {
 	if (!ws || !ws->output) {
 		return;
 	}
+	// TODO: needed?
 	output_configure_scene(ws->output, &ws->layers.tiling->node, false, NULL);
 	workspace_for_each_container(ws, _fade_container_update, NULL);
 }
