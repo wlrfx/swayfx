@@ -130,15 +130,6 @@ static void workspace_fade_complete_callback(void *data) {
 		struct sway_container *floater = ws->current.floating->items[i];
 		wlr_scene_node_set_enabled(&floater->scene_tree->node, false);
 	}
-
-	// Start fade-in of the new workspace
-	struct sway_workspace *new_ws = output->current.active_workspace;
-	if (new_ws) {
-		new_ws->animation_state.from_alpha = 0.0f;
-		new_ws->animation_state.to_alpha = 1.0f;
-		add_animation(&new_ws->animation_state.animation,
-			workspace_fade_update_callback, NULL);
-	}
 }
 
 /* Compensate for scene-graph reparenting by computing the drift between
@@ -915,8 +906,12 @@ static void arrange_output(struct sway_output *output, int width, int height) {
 			old_active->animation_state.to_alpha = 0.0f;
 
 			finish_animation(&new_active->animation_state.animation);
+			new_active->animation_state.from_alpha = 0.0f;
+			new_active->animation_state.to_alpha = 1.0f;
 
 			add_animation(&old_active->animation_state.animation,
+				workspace_fade_update_callback, workspace_fade_complete_callback);
+			add_animation(&new_active->animation_state.animation,
 				workspace_fade_update_callback, workspace_fade_complete_callback);
 		}
 	}
