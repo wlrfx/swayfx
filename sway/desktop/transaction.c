@@ -74,11 +74,6 @@ static void anim_update_callback(void *data) {
 		return;
 	}
 
-	if (con->current.workspace && !workspace_is_visible(con->current.workspace)) {
-		finish_animation(&con->animation_state.animation);
-		return;
-	}
-
 	int width = get_animated_value(con->animation_state.from_width,
 		con->animation_state.to_width, &con->animation_state.animation);
 	int height = get_animated_value(con->animation_state.from_height,
