@@ -122,7 +122,7 @@ struct sway_container *container_create(struct sway_view *view) {
 
 	c->animation_state.animation = init_animation(c);
 	c->animation_state.from_alpha = 0.0f;
-	c->animation_state.to_alpha = c->alpha;
+	c->animation_state.to_alpha = 1.0f;
 	c->animation_state.from_x = -1;
 	c->animation_state.from_y = -1;
 	c->animation_state.to_x = 0;
@@ -242,7 +242,7 @@ void container_update(struct sway_container *con) {
 	list_t *siblings = NULL;
 	enum sway_container_layout layout = L_NONE;
 	float alpha = MIN(1, MAX(0, get_animated_value(con->animation_state.from_alpha,
-		con->animation_state.to_alpha, &con->animation_state.animation)));
+		con->animation_state.to_alpha, &con->animation_state.animation))) * con->alpha;
 
 	if (con->current.workspace) {
 		alpha *= get_animated_value(
@@ -1610,7 +1610,8 @@ struct sway_container *container_split(struct sway_container *child,
 		enum sway_container_layout layout) {
 	// i3 doesn't split singleton H/V containers
 	// https://github.com/i3/i3/blob/3cd1c45eba6de073bc4300eebb4e1cc1a0c4479a/src/tree.c#L354
-	if (child->pending.parent || child->pending.workspace) {
+	if ((layout == L_HORIZ || layout == L_VERT) &&
+			(child->pending.parent || child->pending.workspace)) {
 		list_t *siblings = container_get_siblings(child);
 		if (siblings->length == 1) {
 			enum sway_container_layout current = container_parent_layout(child);

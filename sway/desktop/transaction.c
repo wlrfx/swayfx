@@ -748,7 +748,7 @@ static void arrange_container(struct sway_container *con,
 	con->animation_state.to_y = y;
 	con->animation_state.to_width = width;
 	con->animation_state.to_height = height;
-	con->animation_state.to_alpha = con->alpha;
+	con->animation_state.to_alpha = 1.0f;
 
 	// open animation — pop-in: grow from center while fading in
 	if (con->animation_state.from_x == -1) {
@@ -814,6 +814,7 @@ static void arrange_fullscreen(struct wlr_scene_tree *tree,
 
 	wlr_scene_node_reparent(fs_node, tree);
 	wlr_scene_node_lower_to_bottom(fs_node);
+	wlr_scene_node_set_position(fs_node, 0, 0);
 }
 
 static void arrange_workspace_floating(struct sway_workspace *ws) {

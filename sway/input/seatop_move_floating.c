@@ -16,9 +16,9 @@ static void finalize_move(struct sway_seat *seat) {
 	container_floating_move_to(e->con, e->con->pending.x, e->con->pending.y);
 	transaction_commit_dirty();
 
-	seatop_begin_default(seat);
-
 	e->con->animation_state.seat_is_moving_float = false;
+
+	seatop_begin_default(seat);
 }
 
 static void handle_button(struct sway_seat *seat, uint32_t time_msec,
