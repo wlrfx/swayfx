@@ -1,6 +1,6 @@
 # A guide to installing SwayFX on Debian 13 (Trixie/Sid)
 
-> **Note:** This guide targets **SwayFX 0.6** (based on Sway 1.11). It manually builds the required dependencies (**wlroots 0.20.2** and **scenefx 0.5**) using Meson subprojects to ensure compatibility and stability.
+> **Note:** This guide targets **SwayFX 0.6** (based on Sway 1.12). It manually builds the required dependencies (**wlroots 0.20.2** and **scenefx 0.5**) using Meson subprojects to ensure compatibility and stability.
 
 ## 1\. Install Dependencies
 
