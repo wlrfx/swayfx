@@ -129,10 +129,13 @@ They are expected to be used with *bindsym* or at runtime through *swaymsg*(1).
 *focus* up|right|down|left
 	Moves focus to the next container in the specified direction.
 
-*focus* prev|next [sibling]
+*focus* prev|next [sibling|contained]
 	Moves focus to the previous or next container in the current layout. By default,
 	the last active child of the newly focused container will be focused. The _sibling_
-	option indicates not to immediately focus a child of the container.
+	option indicates not to immediately focus a child of the container. The _contained_
+	option does the same, and restricts navigation to the direct siblings of the
+	focused container: it never moves focus to a parent container or to a sibling of
+	an ancestor.
 
 *focus* child
 	Moves focus to the last-focused child of the focused container.

@@ -137,11 +137,14 @@ static struct sway_node *get_node_in_output_direction(
 
 static struct sway_node *node_get_in_direction_tiling(
 		struct sway_container *container, struct sway_seat *seat,
-		enum wlr_direction dir, bool descend) {
+		enum wlr_direction dir, bool descend, bool contained) {
 	struct sway_container *wrap_candidate = NULL;
 	struct sway_container *current = container;
 	while (current) {
 		if (current->pending.fullscreen_mode == FULLSCREEN_WORKSPACE) {
+			if (contained) {
+				return NULL;
+			}
 			// Fullscreen container with a direction - go straight to outputs
 			struct sway_output *output = current->pending.workspace->output;
 			struct sway_output *new_output =
@@ -202,7 +205,20 @@ static struct sway_node *node_get_in_direction_tiling(
 			}
 		}
 
-		current = current->pending.parent;
+		// In contained mode, only the focused container's direct siblings
+		// are considered, so never ascend to a parent container.
+		current = contained ? NULL : current->pending.parent;
+	}
+
+	if (contained) {
+		// Wrap within the focused container's direct siblings if wrapping is
+		// enabled, otherwise there is nowhere else to move.
+		if (wrap_candidate) {
+			struct sway_container *c = seat_get_focus_inactive_view(
+					seat, &wrap_candidate->node);
+			return &c->node;
+		}
+		return NULL;
 	}
 
 	// Check a different output
@@ -422,6 +438,7 @@ struct cmd_results *cmd_focus(int argc, char **argv) {
 
 	enum wlr_direction direction = 0;
 	bool descend = true;
+	bool contained = false;
 	if (!parse_direction(argv[0], &direction)) {
 		if (!get_direction_from_next_prev(container, seat, argv[0], &direction)) {
 			return cmd_results_new(CMD_INVALID,
@@ -429,6 +446,9 @@ struct cmd_results *cmd_focus(int argc, char **argv) {
 				"or 'focus output <direction|name>'");
 		} else if (argc == 2 && strcasecmp(argv[1], "sibling") == 0) {
 			descend = false;
+		} else if (argc == 2 && strcasecmp(argv[1], "contained") == 0) {
+			descend = false;
+			contained = true;
 		}
 	}
 
@@ -459,7 +479,8 @@ struct cmd_results *cmd_focus(int argc, char **argv) {
 			container->pending.fullscreen_mode == FULLSCREEN_NONE) {
 		next_focus = node_get_in_direction_floating(container, seat, direction);
 	} else {
-		next_focus = node_get_in_direction_tiling(container, seat, direction, descend);
+		next_focus = node_get_in_direction_tiling(container, seat,
+				direction, descend, contained);
 	}
 	if (next_focus) {
 		seat_set_focus(seat, next_focus);
