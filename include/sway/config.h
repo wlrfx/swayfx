@@ -486,11 +486,18 @@ enum xwayland_mode {
 	XWAYLAND_MODE_IMMEDIATE,
 };
 
+enum workspace_effect {
+	WORKSPACE_EFFECT_FADE,
+	WORKSPACE_EFFECT_SLIDE,
+	WORKSPACE_EFFECT_NONE,
+};
+
 /**
  * The configuration struct. The result of loading a config file.
  */
 struct sway_config {
 	float animation_duration_ms;
+	enum workspace_effect workspace_effect;
 	int corner_radius;
 	bool smart_corner_radius;
 

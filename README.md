@@ -71,6 +71,7 @@ For Fedora users, SwayFX is also available in [copr](https://copr.fedorainfraclo
     - `dim_inactive_colors.urgent <hex color> ex, #900000FF`
 + Keep/remove separator border between titlebar and content: `titlebar_separator enable|disable`
 + Treat Scratchpad as minimized: `scratchpad_minimize enable|disable`: **we recommend keeping this setting off, as there are many kinks to iron out here**
++ Choose the workspace switch transition: `workspace_effect fade|slide|none` (default `fade`); requires `animation_duration_ms` to be non-zero
 
 
 ## Compiling From Source

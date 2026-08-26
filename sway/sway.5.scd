@@ -422,6 +422,14 @@ animation_duration_ms <value>
 	Determines the duration of the animation applied to opening and closing
 	windows, between 0 (no animation) and 5000 (5 seconds).
 
+workspace_effect fade|slide|none
+	Determines the animation played when switching the active workspace on
+	an output. _fade_ (the default) cross-fades the outgoing and incoming
+	workspace. _slide_ slides the outgoing workspace off-screen while the
+	incoming one slides in from the opposite side, similar to a
+	swipe-between-desktops transition. _none_ disables the transition.
+	Has no effect while _animation_duration_ms_ is 0.
+
 *assign* <criteria> [→] [workspace] [number] <workspace>
 	Assigns windows matching _criteria_ (see *CRITERIA* for details) to
 	_workspace_. The → (U+2192) is optional and cosmetic. This command is

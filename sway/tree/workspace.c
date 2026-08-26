@@ -224,6 +224,8 @@ struct sway_workspace *workspace_create(struct sway_output *output,
 	ws->animation_state.animation = init_animation(ws);
 	ws->animation_state.from_alpha = 1.0f;
 	ws->animation_state.to_alpha = 1.0f;
+	ws->animation_state.from_offset_x = 0;
+	ws->animation_state.to_offset_x = 0;
 
 	ws->gaps_outer = config->gaps_outer;
 	ws->gaps_inner = config->gaps_inner;
@@ -542,7 +544,7 @@ struct sway_workspace *workspace_by_name(const char *name) {
 	}
 }
 
-static int workspace_get_number(struct sway_workspace *workspace) {
+int workspace_get_number(struct sway_workspace *workspace) {
 	char *endptr = NULL;
 	errno = 0;
 	long long n = strtoll(workspace->name, &endptr, 10);

@@ -59,6 +59,8 @@ struct sway_workspace {
 		struct animation animation;
 		float from_alpha;
 		float to_alpha;
+		int from_offset_x;
+		int to_offset_x;
 	} animation_state;
 };
 
@@ -83,6 +85,8 @@ struct sway_workspace *workspace_auto_back_and_forth(
 bool workspace_switch(struct sway_workspace *workspace);
 
 struct sway_workspace *workspace_by_number(const char* name);
+
+int workspace_get_number(struct sway_workspace *workspace);
 
 struct sway_workspace *workspace_by_name(const char*);
 
