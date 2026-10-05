@@ -450,6 +450,19 @@ void view_autoconfigure(struct sway_view *view) {
 			y = con->pending.y + y_offset;
 			height = con->pending.height - y_offset
 				- con->pending.border_thickness * con->pending.border_bottom;
+		} else if (container_label_active(con, &con->pending)) {
+			// A label floats over content rather than reserving titlebar
+			// height, so the top edge behaves like B_PIXEL's plain border
+			// (see the matching B_NORMAL branch in transaction.c's
+			// _arrange_container()) — must subtract border_top thickness
+			// here too, matching container_set_geometry_from_content()'s
+			// reverse computation, or floating windows whose client
+			// renegotiates size on every commit grow by border_thickness
+			// on every round trip.
+			y = con->pending.y + con->pending.border_thickness * con->pending.border_top;
+			height = con->pending.height
+				- con->pending.border_thickness * con->pending.border_top
+				- con->pending.border_thickness * con->pending.border_bottom;
 		} else {
 			y = con->pending.y + container_titlebar_height();
 			height = con->pending.height - container_titlebar_height()

@@ -87,6 +87,7 @@ sway_sources = files(
 	'commands/hide_edge_borders.c',
 	'commands/inhibit_idle.c',
 	'commands/kill.c',
+	'commands/label.c',
 	'commands/mark.c',
 	'commands/max_render_time.c',
 	'commands/opacity.c',
