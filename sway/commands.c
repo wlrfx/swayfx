@@ -89,6 +89,8 @@ static const struct cmd_handler handlers[] = {
 	{ "hide_edge_borders", cmd_hide_edge_borders },
 	{ "input", cmd_input },
 	{ "layer_effects", cmd_layer_effects },
+	{ "layout_algorithm", cmd_layout_algorithm },
+	{ "layout_ratio", cmd_layout_ratio },
 	{ "mode", cmd_mode },
 	{ "mouse_warping", cmd_mouse_warping },
 	{ "new_float", cmd_new_float },
