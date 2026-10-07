@@ -18,21 +18,34 @@ static void apply_horiz_layout(list_t *children, struct wlr_box *parent) {
 		return;
 	}
 
-	if (config->ultrawide_mode && children->length == 2) {
+	if (config->ultrawide_mode && children->length >= 2) {
+		float primary_fraction = config->ultrawide_split_fraction;
+		float secondary_fraction = 1.0 - primary_fraction;
 		// pr note #5 limit custom width_fraction to workspace-level
-		struct sway_container *primary = children->items[0];
-		struct sway_container *secondary = children->items[1];
-		if (primary->pending.parent == NULL) {
+		struct sway_container *first = children->items[0];
+		struct sway_container *second = children->items[1];
+		if (first->pending.parent == NULL) {
 			// pr note #4 custom width_fraction windows should be resizable
-			if (primary->width_fraction <= 0 || secondary->width_fraction <= 0) {
-				if (children->length == 2) {
-					primary->width_fraction   	= config->ultrawide_split_fraction;
-					secondary->width_fraction 	= 1.0 - config->ultrawide_split_fraction;
-				} else if (children->length == 3) {
-					// pr note #1 address > 2 window resizing 
-					primary->width_fraction   	= 0.33;
-					secondary->width_fraction 	= 0.33;
+			switch(children->length) {
+			case 2:
+				if (first->width_fraction <= 0 || second->width_fraction <= 0) {
+					first->width_fraction = primary_fraction;
+					second->width_fraction = secondary_fraction;
+				} else if (first->width_fraction - secondary_fraction == 0 && 
+								second->width_fraction - primary_fraction == 0) {
+					first->width_fraction = primary_fraction;
+					second->width_fraction = secondary_fraction;
 				}
+				break;
+			case 3:
+				struct sway_container *third = children->items[2];
+				if(third->width_fraction <= 0) {
+					first->width_fraction = 0.33;
+					second->width_fraction = 0.33;
+				}
+				break;
+			default:
+				break;
 			}
 		}
 	}
