@@ -94,6 +94,8 @@ sway_sources = files(
 	'commands/input.c',
 	'commands/layout.c',
 	'commands/layer_effects.c',
+	'commands/layout_algorithm.c',
+	'commands/layout_ratio.c',
 	'commands/mode.c',
 	'commands/mouse_warping.c',
 	'commands/move.c',
@@ -234,6 +236,10 @@ sway_sources = files(
 	'commands/output/transform.c',
 	'commands/output/unplug.c',
 	'commands/output/color_profile.c',
+
+	'layouts/grid.c',
+	'layouts/layouts.c',
+	'layouts/master_stack.c',
 
 	'tree/arrange.c',
 	'tree/container.c',
