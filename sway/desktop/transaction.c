@@ -900,18 +900,21 @@ static void arrange_output(struct sway_output *output, int width, int height) {
 			add_animation(&new_active->animation_state.animation,
 				workspace_fade_update_callback, NULL);
 		} else {
-			new_active->animation_state.to_alpha = 0.0f;
-			float current_alpha = get_animated_value(old_active->animation_state.from_alpha,
-				old_active->animation_state.to_alpha, &old_active->animation_state.animation);
-			old_active->animation_state.from_alpha = current_alpha;
-			old_active->animation_state.to_alpha = 0.0f;
+			if (old_active->current.output == output) {
+				// old_active is our responsibility. animate it
+				float current_alpha = get_animated_value(old_active->animation_state.from_alpha,
+					old_active->animation_state.to_alpha, &old_active->animation_state.animation);
+				old_active->animation_state.from_alpha = current_alpha;
+				old_active->animation_state.to_alpha = 0.0f;
+				add_animation(&old_active->animation_state.animation,
+					workspace_fade_update_callback, workspace_fade_complete_callback);
+			}
 
+			new_active->animation_state.to_alpha = 0.0f;
 			finish_animation(&new_active->animation_state.animation);
 			new_active->animation_state.from_alpha = 0.0f;
 			new_active->animation_state.to_alpha = 1.0f;
 
-			add_animation(&old_active->animation_state.animation,
-				workspace_fade_update_callback, workspace_fade_complete_callback);
 			add_animation(&new_active->animation_state.animation,
 				workspace_fade_update_callback, workspace_fade_complete_callback);
 		}
@@ -923,9 +926,11 @@ static void arrange_output(struct sway_output *output, int width, int height) {
 		new_active->animation_state.from_alpha = 1.0f;
 		new_active->animation_state.to_alpha = 1.0f;
 
-		finish_animation(&old_active->animation_state.animation);
-		old_active->animation_state.from_alpha = 1.0f;
-		old_active->animation_state.to_alpha = 0.0f;
+		if (old_active->current.output == output) {
+			finish_animation(&old_active->animation_state.animation);
+			old_active->animation_state.from_alpha = 1.0f;
+			old_active->animation_state.to_alpha = 0.0f;
+		}
 	}
 
 	for (int i = 0; i < output->current.workspaces->length; i++) {
