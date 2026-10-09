@@ -422,6 +422,12 @@ animation_duration_ms <value>
 	Determines the duration of the animation applied to opening and closing
 	windows, between 0 (no animation) and 5000 (5 seconds).
 
+*animation_easing* <linear|quad|cubic|back>
+	Sets the easing curve applied to all animations (window open/close,
+	movements and workspace fades). cubic is the default.
+	_back_ overshoots the target slightly for a livelier, springy
+	feel, while _linear_ animates at a constant speed.
+
 *assign* <criteria> [→] [workspace] [number] <workspace>
 	Assigns windows matching _criteria_ (see *CRITERIA* for details) to
 	_workspace_. The → (U+2192) is optional and cosmetic. This command is
