@@ -213,7 +213,7 @@ static enum wlr_scale_filter_mode get_scale_filter(struct sway_output *output,
 }
 
 static void configure_layer_shell_surface(struct wlr_scene_buffer *buffer,
-		struct sway_layer_surface *layer_surface) {
+		struct sway_layer_surface *layer_surface, float opacity) {
 	int corner_radius = layer_surface->corner_radius;
 
 	wlr_scene_buffer_set_corner_radii(buffer, corner_radii_all(corner_radius));
@@ -227,6 +227,7 @@ static void configure_layer_shell_surface(struct wlr_scene_buffer *buffer,
 		wlr_scene_blur_set_transparency_mask_source(layer_surface->blur_node, NULL);
 	}
 	wlr_scene_blur_set_should_only_blur_bottom_layer(layer_surface->blur_node, layer_surface->blur_xray);
+	wlr_scene_blur_set_strength(layer_surface->blur_node, opacity);
 	wlr_scene_blur_set_corner_radii(layer_surface->blur_node, corner_radii_all(corner_radius));
 	wlr_scene_blur_set_size(layer_surface->blur_node,
 		layer_surface->layer_surface->surface->current.width,
@@ -305,7 +306,7 @@ void output_configure_scene(struct sway_output *output, struct wlr_scene_node *n
 		wlr_scene_buffer_set_opacity(buffer, opacity);
 
 		if (wlr_layer_surface) {
-			configure_layer_shell_surface(buffer, wlr_layer_surface->data);
+			configure_layer_shell_surface(buffer, wlr_layer_surface->data, opacity);
 			return;
 		}
 
