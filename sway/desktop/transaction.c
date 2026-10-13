@@ -887,15 +887,19 @@ static void arrange_output(struct sway_output *output, int width, int height) {
 	struct sway_workspace *new_active = output->current.active_workspace;
 	struct sway_workspace *old_active = output->prev_active_workspace;
 
-	bool is_ws_switch = old_active && old_active != new_active
+	// A workspace moved to another output is still our prev_active_workspace,
+	// but its alpha now belongs to the output that shows it.
+	bool old_moved_away = old_active && old_active->current.output != output;
+
+	bool is_ws_switch = old_active && new_active && old_active != new_active
 		&& output->wlr_output->enabled && config->animation_duration_ms > 0 &&
 		!(old_active->current.fullscreen || new_active->current.fullscreen);
 
 	if (is_ws_switch) {
 		new_active->animation_state.from_alpha = 0.0f;
 
-		if (old_active->current.tiling->length == 0
-				&& old_active->current.floating->length == 0) {
+		if (old_moved_away || (old_active->current.tiling->length == 0
+				&& old_active->current.floating->length == 0)) {
 			new_active->animation_state.to_alpha = 1.0f;
 			add_animation(&new_active->animation_state.animation,
 				workspace_fade_update_callback, NULL);
@@ -923,9 +927,11 @@ static void arrange_output(struct sway_output *output, int width, int height) {
 		new_active->animation_state.from_alpha = 1.0f;
 		new_active->animation_state.to_alpha = 1.0f;
 
-		finish_animation(&old_active->animation_state.animation);
-		old_active->animation_state.from_alpha = 1.0f;
-		old_active->animation_state.to_alpha = 0.0f;
+		if (!old_moved_away) {
+			finish_animation(&old_active->animation_state.animation);
+			old_active->animation_state.from_alpha = 1.0f;
+			old_active->animation_state.to_alpha = 0.0f;
+		}
 	}
 
 	for (int i = 0; i < output->current.workspaces->length; i++) {
