@@ -82,6 +82,11 @@ static bool layer_criteria_parse(struct layer_criteria *criteria) {
 			criteria->shadow_enabled = parse_boolean(argv[1], true);
 			continue;
 		} else if (strcmp(argv[0], "corner_radius") == 0) {
+			if (argc != 2) {
+				sway_log(SWAY_ERROR,
+						"Invalid layer_effects corner_radius! Expected a size argument.");
+				return false;
+			}
 			int value;
 			if (cmd_corner_radius_parse_value(argv[1], &value)) {
 				criteria->corner_radius = value;
