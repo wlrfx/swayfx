@@ -727,6 +727,9 @@ static void _arrange_container(struct sway_container *con,
 	}
 }
 
+// Set while arranging a workspace that was not on screen on the last frame
+static bool arrange_from_offscreen = false;
+
 static void arrange_container(struct sway_container *con,
 		int width, int height, int x, int y, bool title_bar, int gaps) {
 	if (!config->animation_duration_ms || !con->view
@@ -763,6 +766,16 @@ static void arrange_container(struct sway_container *con,
 		con->animation_state.from_height = height * POPIN_FACTOR;
 		con->animation_state.from_alpha = 0.0f;
 		add_animation(&con->animation_state.animation, anim_update_callback, NULL);
+	} else if (arrange_from_offscreen) {
+		// the scene geometry is stale, so there is nothing to animate from
+		finish_animation(&con->animation_state.animation);
+		con->animation_state.from_x = x;
+		con->animation_state.from_y = y;
+		con->animation_state.from_width = width;
+		con->animation_state.from_height = height;
+		con->animation_state.from_alpha = 1.0f;
+		_arrange_container(con, width, height, x, y, title_bar, gaps);
+		return;
 	} else {
 		// move animation
 		snap_animation_position(con);
@@ -891,6 +904,12 @@ static void arrange_output(struct sway_output *output, int width, int height) {
 		&& output->wlr_output->enabled && config->animation_duration_ms > 0 &&
 		!(old_active->current.fullscreen || new_active->current.fullscreen);
 
+	// A workspace that is not on screen is not arranged, so its containers
+	// keep the size of the output it was last shown on. Sampled before the
+	// fade below starts new_active's animation.
+	bool new_active_offscreen = new_active && new_active != old_active
+		&& !new_active->animation_state.animation.initialized;
+
 	if (is_ws_switch) {
 		new_active->animation_state.from_alpha = 0.0f;
 
@@ -944,6 +963,8 @@ static void arrange_output(struct sway_output *output, int width, int height) {
 		}
 
 		if (activated) {
+			arrange_from_offscreen = new_active_offscreen;
+
 			struct sway_container *fs = child->current.fullscreen;
 			wlr_scene_node_set_enabled(&child->layers.tiling->node, !fs);
 			wlr_scene_node_set_enabled(&child->layers.fullscreen->node, fs);
@@ -973,6 +994,8 @@ static void arrange_output(struct sway_output *output, int width, int height) {
 					area->height - gaps->top - gaps->bottom);
 				arrange_workspace_floating(child);
 			}
+
+			arrange_from_offscreen = false;
 		} else if (animating && !activated) {
 			// Workspace fading out - keep visible, alpha handled by render path
 			struct wlr_box *area = &output->usable_area;
