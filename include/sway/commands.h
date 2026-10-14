@@ -169,6 +169,8 @@ sway_cmd cmd_seat;
 sway_cmd cmd_ipc;
 sway_cmd cmd_kill;
 sway_cmd cmd_layer_effects;
+sway_cmd cmd_layout_algorithm;
+sway_cmd cmd_layout_ratio;
 sway_cmd cmd_layout;
 sway_cmd cmd_log_colors;
 sway_cmd cmd_mark;

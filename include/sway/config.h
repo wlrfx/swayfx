@@ -23,6 +23,8 @@
 
 // TODO: Refactor this shit
 
+struct sway_layout;
+
 /**
  * Describes a variable created via the `set` command.
  */
@@ -617,6 +619,9 @@ struct sway_config {
 
 	// The keysym to keycode translation
 	struct xkb_state *keysym_translation_state;
+
+	const struct sway_layout *layout_algo;
+	double layout_ratio;
 
 	// ultrawide mode 
 	bool ultrawide_mode;

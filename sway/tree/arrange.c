@@ -4,6 +4,7 @@
 #include <string.h>
 #include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_output_layout.h>
+#include "sway/layouts.h"
 #include "sway/tree/arrange.h"
 #include "sway/tree/container.h"
 #include "sway/output.h"
@@ -15,6 +16,10 @@
 
 static void apply_horiz_layout(list_t *children, struct wlr_box *parent) {
 	if (!children->length) {
+		return;
+	}
+
+	if (sway_layout_apply(children, parent)) {
 		return;
 	}
 

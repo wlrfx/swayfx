@@ -19,6 +19,7 @@
 #include "sway/input/input-manager.h"
 #include "sway/input/seat.h"
 #include "sway/input/switch.h"
+#include "sway/layouts.h"
 #include "sway/commands.h"
 #include "sway/config.h"
 #include "sway/criteria.h"
@@ -317,6 +318,9 @@ static void config_defaults(struct sway_config *config) {
 
 	config->has_focused_tab_title = false;
 	
+	config->layout_algo = NULL;
+	config->layout_ratio = SWAY_LAYOUT_RATIO_DEFAULT;
+
 	// ultrawide mode
 	config->ultrawide_mode = false;
 	config->ultrawide_split_fraction = 0.67;

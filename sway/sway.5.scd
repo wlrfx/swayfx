@@ -197,6 +197,31 @@ set|plus|minus|toggle <amount>
 *layout* toggle [split|tabbed|stacking|splitv|splith] [split|tabbed|stacking|splitv|splith]...
 	Cycles the layout mode of the focused container through a list of layouts.
 
+*layout_algorithm* master_stack|grid|none|next
+	Sets the tiling algorithm used for windows directly on a workspace. In the
+	config file it sets the default for all workspaces. When run as a command
+	(for example from a keybinding or _swaymsg_) it sets the algorithm for the
+	focused workspace only, which then ignores the default. _next_ switches to
+	the next algorithm in the list.
+
+	Only applies to workspaces with a horizontal layout (_splith_), and not to
+	nested containers. Takes precedence over _ultrawide_mode_. _none_ uses the
+	normal tiling. Directional focus and move follow the container order, not
+	the window positions, and _resize_ has no effect on these layouts. Use
+	_layout_ratio_ instead.
+
+	_master_stack_ puts the first window on the left and stacks the rest on the
+	right. _grid_ places all windows in an even grid.
+
+*layout_ratio* <fraction>|+<fraction>|-<fraction>
+	Sets the width of the main window for _master_stack_ as a fraction of the
+	workspace width, between 0.1 and 0.9. Default is 0.55. A leading _+_ or _-_
+	changes the current value by that amount. The scope is the same as for
+	_layout_algorithm_. Example:
+
+		bindsym $mod+l layout_ratio +0.05
+		bindsym $mod+h layout_ratio -0.05
+
 *max_render_time* off|<msec>
 	Controls when the relevant application is told to render this window, as a
 	positive number of milliseconds before the next time sway composites the

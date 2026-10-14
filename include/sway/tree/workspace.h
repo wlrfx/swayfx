@@ -46,6 +46,9 @@ struct sway_workspace {
 	int gaps_inner;
 	struct side_gaps gaps_outer;
 
+	const struct sway_layout *layout_algo;
+	double layout_ratio;
+
 	struct sway_output *output; // NULL if no outputs are connected
 	list_t *floating;           // struct sway_container
 	list_t *tiling;             // struct sway_container
