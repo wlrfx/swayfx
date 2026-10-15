@@ -26,15 +26,43 @@ struct animation init_animation(void *data) {
 	};
 }
 
+static float ease_linear(float p) {
+	return p;
+}
+
+static float ease_out_quad(float p) {
+	return p * (2.0f - p);
+}
+
 static float ease_out_cubic(float p) {
 	return pow(p - 1, 3) + 1;
+}
+
+static float ease_out_back(float p) {
+	const float c1 = 1.70158f;
+	const float c3 = c1 + 1.0f;
+	return 1.0f + c3 * pow(p - 1, 3) + c1 * pow(p - 1, 2);
+}
+
+static float animation_multiplier(float progress) {
+	switch (config->animation_easing) {
+	case EASING_LINEAR:
+		return ease_linear(progress);
+	case EASING_QUAD:
+		return ease_out_quad(progress);
+	case EASING_BACK:
+		return ease_out_back(progress);
+	case EASING_CUBIC:
+	default:
+		return ease_out_cubic(progress);
+	}
 }
 
 static int animation_timer() {
 	struct animation *animation, *tmp;
 	wl_list_for_each_reverse_safe(animation, tmp, &animation_manager.animations, link) {
 		animation->progress = MIN(animation->progress + animation_manager.progress_delta, 1.0f);
-		animation->multiplier = ease_out_cubic(animation->progress);
+		animation->multiplier = animation_multiplier(animation->progress);
 
 		if (animation->update) {
 			animation->update(animation->data);
