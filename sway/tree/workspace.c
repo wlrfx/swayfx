@@ -285,6 +285,16 @@ void workspace_destroy(struct sway_workspace *workspace) {
 		return;
 	}
 
+	// An output remembers the workspace it showed last, to fade it out when
+	// it switches. That must not outlive the workspace: arrange_output reads
+	// it on the next arrange.
+	struct sway_output *output;
+	wl_list_for_each(output, &root->all_outputs, link) {
+		if (output->prev_active_workspace == workspace) {
+			output->prev_active_workspace = NULL;
+		}
+	}
+
 	scene_node_disown_children(workspace->layers.tiling);
 	scene_node_disown_children(workspace->layers.fullscreen);
 	wlr_scene_node_destroy(&workspace->layers.tiling->node);
