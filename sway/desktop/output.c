@@ -219,6 +219,9 @@ static void configure_layer_shell_surface(struct wlr_scene_buffer *buffer,
 	wlr_scene_buffer_set_corner_radii(buffer, corner_radii_all(corner_radius));
 	wlr_scene_shadow_set_blur_sigma(layer_surface->shadow_node, config->shadow_blur_sigma);
 	wlr_scene_shadow_set_corner_radius(layer_surface->shadow_node, corner_radius);
+	// The colour is otherwise only set when the node is created, so a later
+	// shadow_color never reached an existing layer surface.
+	wlr_scene_shadow_set_color(layer_surface->shadow_node, config->shadow_color);
 
 	wlr_scene_node_set_enabled(&layer_surface->blur_node->node, layer_surface->blur_enabled);
 	if (layer_surface->blur_ignore_transparent) {
