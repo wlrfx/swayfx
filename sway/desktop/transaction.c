@@ -14,6 +14,7 @@
 #include "sway/input/input-manager.h"
 #include "sway/output.h"
 #include "sway/server.h"
+#include "sway/sway_text_node.h"
 #include "sway/tree/container.h"
 #include "sway/tree/node.h"
 #include "sway/tree/view.h"
@@ -385,6 +386,81 @@ static void arrange_title_bar(struct sway_container *con,
 	container_arrange_title_bar(con);
 }
 
+static int resolve_label_max_width(struct sway_container *con, int container_width) {
+	int max_width = con->label_max_width_is_percent
+		? (int)(container_width * (con->label_max_width_percent / 100.0f))
+		: con->label_max_width;
+	if (max_width <= 0) {
+		max_width = container_width;
+	}
+	return MIN(max_width, container_width);
+}
+
+static void arrange_label(struct sway_container *con,
+		int container_width, int container_height) {
+	container_update(con);
+
+	int max_width = resolve_label_max_width(con, container_width);
+	int height = container_titlebar_height();
+
+	// The label hugs its text, so derive the natural width from the measured
+	// text nodes rather than from con->title_width — that field is the width
+	// *allotted* to container_arrange_title_bar(), not a measurement, so
+	// feeding it back in here would latch the label to whatever width a
+	// previous arrange happened to use.
+	// Mirrors container_arrange_title_bar()'s layout: titlebar_h_padding on
+	// each side, plus another one between the title and the marks.
+	int natural = 2 * config->titlebar_h_padding;
+	if (con->title_bar.title_text) {
+		natural += con->title_bar.title_text->width;
+	}
+	if (con->title_bar.marks_text) {
+		natural += con->title_bar.marks_text->width + config->titlebar_h_padding;
+	}
+
+	int width = MIN(natural, max_width);
+	width = MAX(width, 0);
+
+	if (width <= 0 || height <= 0) {
+		wlr_scene_node_set_enabled(&con->title_bar.tree->node, false);
+		return;
+	}
+
+	int x;
+	switch (con->label_align) {
+	case LABEL_ALIGN_LEFT:
+		x = 0;
+		break;
+	case LABEL_ALIGN_RIGHT:
+		x = container_width - width;
+		break;
+	case LABEL_ALIGN_CENTER:
+	default:
+		x = (container_width - width) / 2;
+		break;
+	}
+
+	int y = con->label_edge == LABEL_EDGE_BOTTOM
+		? container_height - height
+		: 0;
+
+	// Keep the label above the content it overlaps.
+	wlr_scene_node_raise_to_top(&con->title_bar.tree->node);
+
+	// A label that has finished fading out stays disabled so it is neither
+	// drawn nor hit-tested; label_fade_complete()/
+	// container_label_restore_visibility() own that flag.
+	wlr_scene_node_set_enabled(&con->title_bar.tree->node,
+			!con->label_state.hidden);
+	con->label_state.rest_x = x;
+	con->label_state.rest_y = y;
+	wlr_scene_node_set_position(&con->title_bar.tree->node,
+			x + (int)con->label_state.slide_x, y + (int)con->label_state.slide_y);
+
+	con->title_width = width;
+	container_arrange_title_bar(con);
+}
+
 static void disable_container(struct sway_container *con) {
 	if (con->view) {
 		wlr_scene_node_reparent(&con->view->scene_tree->node, con->content_tree);
@@ -580,7 +656,18 @@ static void _arrange_container(struct sway_container *con,
 		int border_top = container_titlebar_height();
 		int border_width = con->current.border_thickness;
 
-		if (title_bar && con->current.border != B_NORMAL) {
+		bool label_active = container_label_active(con, &con->current) && title_bar;
+
+		if (label_active) {
+			// arrange_label() (below) owns title_bar.tree's enabled state
+			// — the label chip is no longer a full-width bar substituting
+			// for a border, so this container needs its own real top
+			// border line, same as it would under B_PIXEL (non-labeled
+			// B_NORMAL instead draws its "border" via the titlebar's own
+			// background/border rects, which is why it leaves this node
+			// disabled below).
+			wlr_scene_node_set_enabled(&con->border.top->node, true);
+		} else if (title_bar && con->current.border != B_NORMAL) {
 			wlr_scene_node_set_enabled(&con->title_bar.tree->node, false);
 			wlr_scene_node_set_enabled(&con->border.top->node, true);
 		} else {
@@ -588,12 +675,22 @@ static void _arrange_container(struct sway_container *con,
 		}
 
 		if (con->current.border == B_NORMAL) {
-			vert_border_offset = 0;
-			if (title_bar) {
-				arrange_title_bar(con, 0, 0, width, border_top);
+			if (label_active) {
+				// The label floats over content instead of reserving a
+				// titlebar strip, so the top edge is just a normal
+				// border line here (same as B_PIXEL's title_bar-true
+				// case — label_active already implies title_bar, see
+				// above) — leave vert_border_offset at its initial
+				// corner_radius value rather than zeroing it.
+				border_top = con->current.border_top ? border_width : 0;
 			} else {
-				border_top = 0;
-				// should be handled by the parent container
+				vert_border_offset = 0;
+				if (title_bar) {
+					arrange_title_bar(con, 0, 0, width, border_top);
+				} else {
+					border_top = 0;
+					// should be handled by the parent container
+				}
 			}
 		} else if (con->current.border == B_PIXEL) {
 			container_update(con);
@@ -610,6 +707,10 @@ static void _arrange_container(struct sway_container *con,
 			border_width = 0;
 		} else {
 			sway_assert(false, "unreachable");
+		}
+
+		if (label_active) {
+			arrange_label(con, width, height);
 		}
 
 		int border_bottom = con->current.border_bottom ? border_width : 0;

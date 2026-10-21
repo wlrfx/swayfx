@@ -287,6 +287,16 @@ static void config_defaults(struct sway_config *config) {
 	config->reading = false;
 	config->show_marks = true;
 	config->title_align = ALIGN_LEFT;
+	config->label_enabled = false;
+	config->label_edge = LABEL_EDGE_TOP;
+	config->label_align = LABEL_ALIGN_CENTER;
+	config->label_max_width = 0; // 0 = uncapped by pixels (percent still applies)
+	config->label_max_width_percent = 50;
+	config->label_max_width_is_percent = true;
+	config->label_corner_radius = 0;
+	config->label_corner_radius_match_window = true;
+	config->label_autohide_ms = 0;
+	config->label_avoid_cursor = false;
 	config->tiling_drag = true;
 	config->tiling_drag_threshold = 9;
 	config->primary_selection = true;
