@@ -69,6 +69,11 @@ static bool layer_criteria_parse(struct layer_criteria *criteria) {
 			// Reset all args
 			init_criteria_effects(criteria);
 			return true;
+		} else if (argc != 2) {
+			sway_log(SWAY_ERROR,
+					"Invalid layer_effects effect! Expected exactly one argument for '%s'.",
+					argv[0]);
+			return false;
 		} else if (strcmp(argv[0], "blur") == 0) {
 			criteria->blur_enabled = parse_boolean(argv[1], true);
 			continue;
