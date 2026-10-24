@@ -388,9 +388,7 @@ static void arrange_title_bar(struct sway_container *con,
 static void disable_container(struct sway_container *con) {
 	if (con->view) {
 		wlr_scene_node_reparent(&con->view->scene_tree->node, con->content_tree);
-		if (con->dim_rect) {
-			wlr_scene_node_reparent(&con->dim_rect->node, con->border.tree);
-		}
+		wlr_scene_node_reparent(&con->dim_rect->node, con->border.tree);
 	} else {
 		for (int i = 0; i < con->current.children->length; i++) {
 			struct sway_container *child = con->current.children->items[i];
@@ -572,12 +570,10 @@ static void _arrange_container(struct sway_container *con,
 	}
 
 	if (con->view) {
-		// It was moved to the fullscreen layer if the view was fullscreen.
-		// Before the size check below, so a container that is too small to
-		// draw does not keep it there.
-		if (con->dim_rect) {
-			wlr_scene_node_reparent(&con->dim_rect->node, con->border.tree);
-		}
+		// the dim rect is in the fullscreen layer if the view was fullscreen,
+		// see arrange_fullscreen(). Put it back before the size check below,
+		// so a container that is too small to draw does not keep it there.
+		wlr_scene_node_reparent(&con->dim_rect->node, con->border.tree);
 
 		wlr_scene_node_coords(&con->scene_tree->node,
 			&con->animation_state.current_global_x,
@@ -819,16 +815,17 @@ static void arrange_fullscreen(struct wlr_scene_tree *tree,
 		wlr_scene_node_set_enabled(&fs->scene_tree->node, false);
 
 		// The dim rect is one of them, and a fullscreen view that is not
-		// focused is dimmed like any other: draw it over the view.
-		if (fs->dim_rect) {
-			wlr_scene_node_reparent(&fs->dim_rect->node, tree);
-			wlr_scene_node_set_position(&fs->dim_rect->node, 0, 0);
-			wlr_scene_rect_set_size(fs->dim_rect, width, height);
-			wlr_scene_rect_set_corner_radii(fs->dim_rect, corner_radii_all(0));
-			// Its colour follows focus, and that is only updated when the
-			// container is arranged, which this is not.
-			container_update(fs);
-		}
+		// focused is dimmed like any other: draw it over the view. Keep it
+		// below the transient floaters that share the tree; the view goes
+		// under it at the end.
+		wlr_scene_node_reparent(&fs->dim_rect->node, tree);
+		wlr_scene_node_lower_to_bottom(&fs->dim_rect->node);
+		wlr_scene_node_set_position(&fs->dim_rect->node, 0, 0);
+		wlr_scene_rect_set_size(fs->dim_rect, width, height);
+		wlr_scene_rect_set_corner_radii(fs->dim_rect, corner_radii_all(0));
+		// Its colour follows focus, and that is only updated when the
+		// container is arranged, which this is not.
+		container_update(fs);
 
 		// reconfigure the output handler (for foreign toplevel) to cover the
 		// view without container decorations
