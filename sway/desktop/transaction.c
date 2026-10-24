@@ -54,10 +54,26 @@ static struct sway_transaction *transaction_create(void) {
 	return transaction;
 }
 
+// A tabbed or stacked container with a single view hides its tab bar when
+// hide_lone_tab is set, unless the view has a title bar of its own. The view
+// then draws its own top border and corners, as a child of a split does.
+static bool lone_tab_hidden(list_t *children) {
+	if (!config->hide_lone_tab || children->length != 1) {
+		return false;
+	}
+	struct sway_container *first = children->items[0];
+	return first->view && first->current.border != B_NORMAL;
+}
+
 static bool con_has_title_bar(struct sway_container *con) {
-	return !(con->current.parent &&
-		(con->current.parent->current.layout == L_STACKED ||
-		 con->current.parent->current.layout == L_TABBED));
+	struct sway_container *parent = con->current.parent;
+	if (!parent || (parent->current.layout != L_STACKED &&
+			parent->current.layout != L_TABBED)) {
+		return true;
+	}
+	// A lone tab with its tab bar hidden draws its own decorations, the way
+	// arrange_children arranges it.
+	return lone_tab_hidden(parent->current.children);
 }
 
 static void _arrange_container(struct sway_container *con,
@@ -424,10 +440,7 @@ static void arrange_children(enum sway_container_layout layout, list_t *children
 	int title_bar_height = container_titlebar_height();
 
 	if (layout == L_TABBED) {
-		struct sway_container *first = children->length == 1 ?
-			((struct sway_container *)children->items[0]) : NULL;
-		if (config->hide_lone_tab && first && first->view &&
-				first->current.border != B_NORMAL) {
+		if (lone_tab_hidden(children)) {
 			title_bar_height = 0;
 		}
 
@@ -456,10 +469,7 @@ static void arrange_children(enum sway_container_layout layout, list_t *children
 			title_offset = next_title_offset;
 		}
 	} else if (layout == L_STACKED) {
-		struct sway_container *first = children->length == 1 ?
-			((struct sway_container *)children->items[0]) : NULL;
-		if (config->hide_lone_tab && first && first->view &&
-				first->current.border != B_NORMAL) {
+		if (lone_tab_hidden(children)) {
 			title_bar_height = 0;
 		}
 
