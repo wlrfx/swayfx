@@ -55,8 +55,8 @@ static struct sway_transaction *transaction_create(void) {
 }
 
 // A tabbed or stacked container with a single view hides its tab bar when
-// hide_lone_tab is set, unless the view has a title bar of its own. Then the
-// view is arranged as if it had no tab bar above it.
+// hide_lone_tab is set, unless the view has a title bar of its own. The view
+// then draws its own top border and corners, as a child of a split does.
 static bool lone_tab_hidden(list_t *children) {
 	if (!config->hide_lone_tab || children->length != 1) {
 		return false;
@@ -71,8 +71,8 @@ static bool con_has_title_bar(struct sway_container *con) {
 			parent->current.layout != L_TABBED)) {
 		return true;
 	}
-	// The parent has no tab bar to draw it, so the container draws its own
-	// decorations, as arrange_children arranges it.
+	// A lone tab with its tab bar hidden draws its own decorations, the way
+	// arrange_children arranges it.
 	return lone_tab_hidden(parent->current.children);
 }
 
