@@ -283,12 +283,12 @@ void container_update(struct sway_container *con) {
 		scene_rect_set_color(con->border.right, right, alpha);
 	}
 
-	// A tabbed or stacked container has no view and draws one shadow for all
-	// its children, so it is focused or urgent when one of them is.
-	bool shadow_focused = con->view ?
-		view_is_urgent(con->view) || con->current.focused :
-		container_has_urgent_child(con) || con->current.focused ||
-			container_has_focused_child(con);
+	// a tabbed or stacked container draws one shadow for all of its children,
+	// so it is urgent or focused when one of them is
+	bool urgent = con->view ?
+		view_is_urgent(con->view) : container_has_urgent_child(con);
+	bool shadow_focused = urgent || con->current.focused ||
+		container_has_focused_child(con);
 	scene_shadow_set_color(con->shadow, shadow_focused ?
 			config->shadow_color : config->shadow_inactive_color, alpha);
 

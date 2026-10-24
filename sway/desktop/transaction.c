@@ -720,8 +720,7 @@ static void _arrange_container(struct sway_container *con,
 		wlr_scene_node_set_enabled(&con->shadow->node,
 				container_has_shadow(con) &&
 				(con->current.layout == L_TABBED || con->current.layout == L_STACKED));
-		// Without a view nothing else updates the shadow's colour, so it kept
-		// the one it was created with.
+		// nothing else updates the shadow color of a container without a view
 		container_update(con);
 
 		arrange_children(con->current.layout, con->current.children,
