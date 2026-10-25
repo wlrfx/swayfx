@@ -74,6 +74,12 @@ static void anim_update_callback(void *data) {
 		return;
 	}
 
+	// A closing container whose view was remapped must not arrange it, as that
+	// would reparent the view's scene tree away from its new container.
+	if (con->view && con->view->container != con) {
+		return;
+	}
+
 	int width = get_animated_value(con->animation_state.from_width,
 		con->animation_state.to_width, &con->animation_state.animation);
 	int height = get_animated_value(con->animation_state.from_height,
@@ -93,7 +99,12 @@ static void anim_update_callback(void *data) {
 
 static void close_anim_complete_callback(void *data) {
 	struct sway_container *con = data;
-	view_remove_saved_buffer(con->view);
+	// If the view was remapped while the close animation was running, it now
+	// belongs to a new container, which owns (and may have already removed)
+	// the saved buffer.
+	if (con->view->container == con && con->view->saved_surface_tree) {
+		view_remove_saved_buffer(con->view);
+	}
 	container_destroy(con);
 }
 
