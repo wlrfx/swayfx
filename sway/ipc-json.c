@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <wlr/config.h>
 #include <wlr/types/wlr_content_type_v1.h>
+#include <wlr/types/wlr_cursor.h>
 #include <wlr/types/wlr_output.h>
 #include <wlr/types/wlr_ext_foreign_toplevel_list_v1.h>
 #include <xkbcommon/xkbcommon.h>
@@ -1309,6 +1310,17 @@ json_object *ipc_json_describe_seat(struct sway_seat *seat) {
 		json_object_new_int(seat->wlr_seat->capabilities));
 	json_object_object_add(object, "focus",
 		json_object_new_int(focus ? focus->id : 0));
+
+	json_object *cursor_position = NULL;
+	if (seat->cursor && seat->cursor->cursor) {
+		struct wlr_cursor *cursor = seat->cursor->cursor;
+		cursor_position = json_object_new_object();
+		json_object_object_add(cursor_position, "x",
+			json_object_new_double(cursor->x));
+		json_object_object_add(cursor_position, "y",
+			json_object_new_double(cursor->y));
+	}
+	json_object_object_add(object, "cursor_position", cursor_position);
 
 	json_object *devices = json_object_new_array();
 	struct sway_seat_device *device = NULL;
