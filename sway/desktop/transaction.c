@@ -110,8 +110,9 @@ static void workspace_fade_update_callback(void *data) {
 	if (!ws || !ws->output) {
 		return;
 	}
-	// TODO: needed?
-	output_configure_scene(ws->output, &ws->layers.tiling->node, false, NULL);
+	// The repaint path runs output_configure_scene() for us, which applies the
+	// workspace alpha to buffers. Here we only need to damage the workspace's
+	// own decorations (borders/title bars) for the fade.
 	workspace_for_each_container(ws, _fade_container_update, NULL);
 }
 
