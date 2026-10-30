@@ -34,7 +34,10 @@ static int animation_timer() {
 	struct animation *animation, *tmp;
 	wl_list_for_each_reverse_safe(animation, tmp, &animation_manager.animations, link) {
 		animation->progress = MIN(animation->progress + animation_manager.progress_delta, 1.0f);
-		animation->multiplier = ease_out_cubic(animation->progress);
+		// ease_out_cubic() can overshoot 1.0 in float32 near the end of a
+		// fade-in; scenefx asserts opacity in [0, 1].
+		animation->multiplier =
+			MAX(0.0f, MIN(ease_out_cubic(animation->progress), 1.0f));
 
 		if (animation->update) {
 			animation->update(animation->data);
