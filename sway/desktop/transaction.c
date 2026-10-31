@@ -115,6 +115,22 @@ static void workspace_fade_update_callback(void *data) {
 	workspace_for_each_container(ws, _fade_container_update, NULL);
 }
 
+// Counts arrange_root() calls. Only what is on screen is arranged, so a
+// container that was not arranged in this pass or the one before was hidden
+// (on another workspace, behind a fullscreen view, in the scratchpad, on an
+// output that was off) and its animation state describes a geometry that is
+// no longer on screen.
+static uint32_t arrange_pass = 1;
+
+static void set_arranged_pass(struct sway_container *con, uint32_t pass) {
+	con->animation_state.arranged_pass = pass;
+	if (con->current.children) {
+		for (int i = 0; i < con->current.children->length; i++) {
+			set_arranged_pass(con->current.children->items[i], pass);
+		}
+	}
+}
+
 static void workspace_fade_complete_callback(void *data) {
 	struct sway_workspace *ws = data;
 	if (!ws || !ws->output) {
@@ -126,8 +142,14 @@ static void workspace_fade_complete_callback(void *data) {
 	}
 	wlr_scene_node_set_enabled(&ws->layers.tiling->node, false);
 	wlr_scene_node_set_enabled(&ws->layers.fullscreen->node, false);
+	// hidden without an arrange pass, so the next one must not take its
+	// containers for ones that were on screen
+	for (int i = 0; i < ws->current.tiling->length; i++) {
+		set_arranged_pass(ws->current.tiling->items[i], arrange_pass - 1);
+	}
 	for (int i = 0; i < ws->current.floating->length; i++) {
 		struct sway_container *floater = ws->current.floating->items[i];
+		set_arranged_pass(floater, arrange_pass - 1);
 		wlr_scene_node_set_enabled(&floater->scene_tree->node, false);
 	}
 }
@@ -729,6 +751,10 @@ static void _arrange_container(struct sway_container *con,
 
 static void arrange_container(struct sway_container *con,
 		int width, int height, int x, int y, bool title_bar, int gaps) {
+	uint32_t last_pass = con->animation_state.arranged_pass;
+	bool stale = last_pass != arrange_pass && last_pass + 1 != arrange_pass;
+	con->animation_state.arranged_pass = arrange_pass;
+
 	if (!config->animation_duration_ms || !con->view
 			|| con->animation_state.seat_is_resizing
 			|| con->animation_state.seat_is_moving_float) {
@@ -763,6 +789,16 @@ static void arrange_container(struct sway_container *con,
 		con->animation_state.from_height = height * POPIN_FACTOR;
 		con->animation_state.from_alpha = 0.0f;
 		add_animation(&con->animation_state.animation, anim_update_callback, NULL);
+	} else if (stale) {
+		// nothing on screen to animate from
+		finish_animation(&con->animation_state.animation);
+		con->animation_state.from_x = x;
+		con->animation_state.from_y = y;
+		con->animation_state.from_width = width;
+		con->animation_state.from_height = height;
+		con->animation_state.from_alpha = 1.0f;
+		_arrange_container(con, width, height, x, y, title_bar, gaps);
+		return;
 	} else {
 		// move animation
 		snap_animation_position(con);
@@ -993,6 +1029,10 @@ static void arrange_output(struct sway_output *output, int width, int height) {
 			arrange_workspace_tiling(child,
 				area->width - gaps->left - gaps->right,
 				area->height - gaps->top - gaps->bottom);
+			// its floating containers are not arranged but stay on screen
+			for (int i = 0; i < child->current.floating->length; i++) {
+				set_arranged_pass(child->current.floating->items[i], arrange_pass);
+			}
 		} else {
 			wlr_scene_node_set_enabled(&child->layers.tiling->node, false);
 			wlr_scene_node_set_enabled(&child->layers.fullscreen->node, false);
@@ -1019,6 +1059,7 @@ void arrange_popups(struct wlr_scene_tree *popups) {
 }
 
 static void arrange_root(struct sway_root *root) {
+	arrange_pass++;
 	struct sway_container *fs = root->fullscreen_global;
 
 	wlr_scene_node_set_enabled(&root->layers.shell_background->node, !fs);
