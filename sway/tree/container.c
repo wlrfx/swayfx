@@ -587,6 +587,12 @@ void container_destroy(struct sway_container *con) {
 		}
 	}
 
+	// A fullscreen view has it in the fullscreen layer, outside the tree
+	// that is destroyed here.
+	if (con->dim_rect) {
+		wlr_scene_node_reparent(&con->dim_rect->node, con->border.tree);
+	}
+
 	scene_node_disown_children(con->content_tree);
 	wlr_scene_node_destroy(&con->scene_tree->node);
 	free(con);
