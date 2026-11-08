@@ -601,11 +601,8 @@ static void _arrange_container(struct sway_container *con,
 			if (!title_bar && !con->current.border_top) {
 				vert_border_offset = 0;
 			}
-		} else if (con->current.border == B_NONE) {
+		} else if (con->current.border == B_NONE || con->current.border == B_CSD) {
 			container_update(con);
-			border_top = 0;
-			border_width = 0;
-		} else if (con->current.border == B_CSD) {
 			border_top = 0;
 			border_width = 0;
 		} else {
