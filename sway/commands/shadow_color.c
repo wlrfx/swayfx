@@ -24,5 +24,12 @@ struct cmd_results *cmd_shadow_color(int argc, char **argv) {
 
 	arrange_root();
 
+	// Layer surface shadows take the new color on the next frame, so ask
+	// every output for one
+	for (int i = 0; i < root->outputs->length; ++i) {
+		struct sway_output *output = root->outputs->items[i];
+		wlr_output_schedule_frame(output->wlr_output);
+	}
+
 	return cmd_results_new(CMD_SUCCESS, NULL);
 }
