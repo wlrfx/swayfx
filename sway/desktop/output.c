@@ -302,7 +302,7 @@ void output_configure_scene(struct sway_output *output, struct wlr_scene_node *n
 			buffer->filter_mode = get_scale_filter(output, buffer);
 		}
 
-		wlr_scene_buffer_set_opacity(buffer, opacity);
+		wlr_scene_buffer_set_opacity(buffer, CLAMP(opacity, 0.0f, 1.0f));
 
 		if (wlr_layer_surface) {
 			configure_layer_shell_surface(buffer, wlr_layer_surface->data);
