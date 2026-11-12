@@ -606,6 +606,9 @@ static void _arrange_container(struct sway_container *con,
 			border_top = 0;
 			border_width = 0;
 		} else if (con->current.border == B_CSD) {
+			if (con->dim_rect) {
+				container_update(con);
+			}
 			border_top = 0;
 			border_width = 0;
 		} else {
