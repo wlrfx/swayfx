@@ -618,10 +618,6 @@ struct sway_config {
 	// The keysym to keycode translation
 	struct xkb_state *keysym_translation_state;
 
-	// ultrawide mode 
-	bool ultrawide_mode;
-	float ultrawide_split_fraction;
-	
 	// Context for command handlers
 	struct {
 		struct input_config *input_config;

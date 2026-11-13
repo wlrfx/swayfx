@@ -1012,14 +1012,6 @@ The default colors are:
 	to _yes_, the marks will be shown on the _left_ side instead of the
 	_right_ side.
 
-*ultrawide_mode* enable|disable
-	Enables or disables usage of alternate ultrawide horizontal layout. Workspaces
-	with two horizontal windows will be split 67/33 rather than 50/50 by default.
-
-*ultrawide_split_fraction* <fraction>
-	Sets the width_fraction of the primary window to _fraction_. Valid values are
-	0 < _fraction_ < 1.
-
 *unbindswitch* <switch>:<state>
 	Removes a binding for when <switch> changes to <state>.
 
