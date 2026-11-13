@@ -281,11 +281,16 @@ void container_update(struct sway_container *con) {
 		scene_rect_set_color(con->border.bottom, bottom, alpha);
 		scene_rect_set_color(con->border.left, colors->child_border, alpha);
 		scene_rect_set_color(con->border.right, right, alpha);
-
-		float *shadow_color = view_is_urgent(con->view) || con->current.focused ?
-				config->shadow_color : config->shadow_inactive_color;
-		scene_shadow_set_color(con->shadow, shadow_color, alpha);
 	}
+
+	// a tabbed or stacked container draws one shadow for all of its children,
+	// so it is urgent or focused when one of them is
+	bool urgent = con->view ?
+		view_is_urgent(con->view) : container_has_urgent_child(con);
+	bool shadow_focused = urgent || con->current.focused ||
+		container_has_focused_child(con);
+	scene_shadow_set_color(con->shadow, shadow_focused ?
+			config->shadow_color : config->shadow_inactive_color, alpha);
 
 	if (con->title_bar.title_text) {
 		sway_text_node_set_color(con->title_bar.title_text, colors->text);
