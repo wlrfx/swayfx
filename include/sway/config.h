@@ -572,6 +572,16 @@ struct sway_config {
 	bool auto_back_and_forth;
 	bool show_marks;
 	enum alignment title_align;
+	bool label_enabled;
+	enum sway_label_edge label_edge;
+	enum sway_label_align label_align;
+	int label_max_width;
+	float label_max_width_percent;
+	bool label_max_width_is_percent;
+	int label_corner_radius;
+	bool label_corner_radius_match_window;
+	int label_autohide_ms;
+	bool label_avoid_cursor;
 	bool primary_selection;
 
 	bool tiling_drag;
