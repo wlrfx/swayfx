@@ -13,6 +13,8 @@
 #include "sway/output.h"
 #include "sway/server.h"
 #include "sway/scene_descriptor.h"
+#include "sway/tree/arrange.h"
+#include "sway/tree/root.h"
 #include "sway/tree/view.h"
 #include "sway/tree/workspace.h"
 #include "log.h"
@@ -599,6 +601,80 @@ static void check_focus_follows_mouse(struct sway_seat *seat,
 	}
 }
 
+static void label_reposition_from_slide(struct sway_container *con) {
+	wlr_scene_node_set_position(&con->title_bar.tree->node,
+			con->label_state.rest_x + (int)con->label_state.slide_x,
+			con->label_state.rest_y + (int)con->label_state.slide_y);
+}
+
+static void label_slide_update(void *data) {
+	struct sway_container *con = data;
+	con->label_state.slide_x = get_animated_value(con->label_state.slide_from_x,
+			con->label_state.slide_to_x, &con->label_state.slide_animation);
+	con->label_state.slide_y = get_animated_value(con->label_state.slide_from_y,
+			con->label_state.slide_to_y, &con->label_state.slide_animation);
+	label_reposition_from_slide(con);
+}
+
+static void label_slide_complete(void *data) {
+	struct sway_container *con = data;
+	con->label_state.slide_x = con->label_state.slide_to_x;
+	con->label_state.slide_y = con->label_state.slide_to_y;
+	label_reposition_from_slide(con);
+}
+
+static void check_label_avoid_cursor(struct sway_container *con,
+		void *data) {
+	double *cursor = data;
+	double cx = cursor[0], cy = cursor[1];
+
+	if (con->node.destroying || !con->label_avoid_cursor
+			|| !container_label_active(con, &con->current)
+			|| !con->title_bar.tree->node.enabled) {
+		return;
+	}
+
+	int lx, ly;
+	if (!wlr_scene_node_coords(&con->title_bar.tree->node, &lx, &ly)) {
+		// An ancestor is disabled (e.g. a container on a workspace that isn't
+		// currently visible); there is nothing on screen to avoid.
+		return;
+	}
+
+	lx -= (int)con->label_state.slide_x;
+	ly -= (int)con->label_state.slide_y;
+
+	int lwidth = con->title_width;
+	int lheight = container_titlebar_height();
+
+	bool hovering = cx >= lx && cx < lx + lwidth && cy >= ly && cy < ly + lheight;
+
+	double target_x = 0, target_y = 0;
+	if (hovering) {
+		// Slide the label fully out of its own height, in the direction
+		// away from its resting edge, so it clears the cursor.
+		target_y = con->label_edge == LABEL_EDGE_BOTTOM ? lheight : -lheight;
+	}
+
+	if (con->label_state.slide_to_y != target_y) {
+		if (hovering) {
+			// The spec makes a cursor-avoidance hover cancel autohide, same as
+			// regaining focus does.
+			container_label_restore_visibility(con);
+		} else {
+			container_label_rearm_autohide(con);
+		}
+
+		con->label_state.slide_from_x = con->label_state.slide_x;
+		con->label_state.slide_from_y = con->label_state.slide_y;
+		con->label_state.slide_to_x = target_x;
+		con->label_state.slide_to_y = target_y;
+		add_animation(&con->label_state.slide_animation,
+				label_slide_update, label_slide_complete);
+		start_animations();
+	}
+}
+
 static void handle_pointer_motion(struct sway_seat *seat, uint32_t time_msec) {
 	struct seatop_default_event *e = seat->seatop_data;
 	struct sway_cursor *cursor = seat->cursor;
@@ -622,8 +698,14 @@ static void handle_pointer_motion(struct sway_seat *seat, uint32_t time_msec) {
 		wlr_seat_pointer_notify_clear_focus(seat->wlr_seat);
 	}
 
-	drag_icons_update_position(seat);
+	// This is one of the hottest paths in the compositor, so only walk the tree
+	// when the avoid_cursor feature is actually in use somewhere.
+	if (container_has_label_avoid_cursor()) {
+		double cursor_pos[2] = { cursor->cursor->x, cursor->cursor->y };
+		root_for_each_container(check_label_avoid_cursor, cursor_pos);
+	}
 
+	drag_icons_update_position(seat);
 	e->previous_node = node;
 }
 

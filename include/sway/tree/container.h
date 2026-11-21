@@ -27,6 +27,17 @@ enum sway_container_border {
 	B_CSD,
 };
 
+enum sway_label_edge {
+	LABEL_EDGE_TOP,
+	LABEL_EDGE_BOTTOM,
+};
+
+enum sway_label_align {
+	LABEL_ALIGN_LEFT,
+	LABEL_ALIGN_CENTER,
+	LABEL_ALIGN_RIGHT,
+};
+
 enum sway_fullscreen_mode {
 	FULLSCREEN_NONE,
 	FULLSCREEN_WORKSPACE,
@@ -39,6 +50,7 @@ struct sway_workspace;
 struct sway_view;
 
 enum wlr_direction;
+struct wl_event_source;
 
 struct sway_container_state {
 	// Container properties
@@ -152,6 +164,32 @@ struct sway_container {
 	bool shadow_enabled;
 	float dim;
 
+	bool label_enabled;
+	enum sway_label_edge label_edge;
+	enum sway_label_align label_align;
+	int label_max_width;
+	float label_max_width_percent;
+	bool label_max_width_is_percent;
+	int label_corner_radius;
+	bool label_corner_radius_match_window;
+	int label_autohide_ms;
+	bool label_avoid_cursor;
+
+	struct {
+		struct animation animation;
+		float from_alpha;
+		float to_alpha;
+		bool hidden;
+		bool was_focused;
+		struct wl_event_source *autohide_timer;
+
+		struct animation slide_animation;
+		double slide_from_x, slide_from_y;
+		double slide_to_x, slide_to_y;
+		double slide_x, slide_y;
+		int rest_x, rest_y;
+	} label_state;
+
 	struct {
 		struct animation animation;
 		float from_alpha;
@@ -228,6 +266,42 @@ void container_update_representation(struct sway_container *container);
  * Return the height of a regular title bar.
  */
 size_t container_titlebar_height(void);
+
+/**
+ * Returns true if the label overlay is active for this container in the given
+ * state layer. Labels are a leaf-view-only feature: a labeled view that lives
+ * in a tabbed or stacked parent renders as a normal tab strip entry instead.
+ *
+ * `state` must be either &con->pending or &con->current; the parent/workspace
+ * layout is read from the matching layer.
+ */
+bool container_label_active(struct sway_container *con,
+		struct sway_container_state *state);
+
+/**
+ * Cancel a pending or in-progress label autohide fade and bring the label back
+ * to full opacity. Safe to call on any container.
+ */
+void container_label_restore_visibility(struct sway_container *con);
+
+/**
+ * Re-arm the label autohide timer if the container is unfocused. Counterpart to
+ * container_label_restore_visibility() for when the reason we forced the label
+ * visible (e.g. a cursor-avoidance hover) goes away.
+ */
+void container_label_rearm_autohide(struct sway_container *con);
+
+/**
+ * Toggle a container's label avoid_cursor setting, keeping the global
+ * "is anyone using this?" count in sync.
+ */
+void container_set_label_avoid_cursor(struct sway_container *con, bool enable);
+
+/**
+ * Returns true if any container currently has label avoid_cursor enabled. Lets
+ * the pointer motion path skip a whole-tree sweep in the common case.
+ */
+bool container_has_label_avoid_cursor(void);
 
 void floating_calculate_constraints(int *min_width, int *max_width,
 		int *min_height, int *max_height);

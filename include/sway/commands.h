@@ -168,6 +168,7 @@ sway_cmd cmd_input;
 sway_cmd cmd_seat;
 sway_cmd cmd_ipc;
 sway_cmd cmd_kill;
+sway_cmd cmd_label;
 sway_cmd cmd_layer_effects;
 sway_cmd cmd_layout;
 sway_cmd cmd_log_colors;
