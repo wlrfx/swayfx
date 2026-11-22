@@ -953,6 +953,15 @@ static void arrange_output(struct sway_output *output, int width, int height) {
 		}
 
 		if (activated) {
+			// A workspace can become visible without a switch on this output
+			// (moved here by a hotplug or `move workspace to output`), keeping
+			// the zero alpha it faded out to on its old output. With no fade
+			// running, the visible workspace must be fully opaque.
+			if (!animating) {
+				child->animation_state.from_alpha = 1.0f;
+				child->animation_state.to_alpha = 1.0f;
+			}
+
 			struct sway_container *fs = child->current.fullscreen;
 			wlr_scene_node_set_enabled(&child->layers.tiling->node, !fs);
 			wlr_scene_node_set_enabled(&child->layers.fullscreen->node, fs);
