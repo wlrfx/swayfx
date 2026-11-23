@@ -163,6 +163,20 @@ static void pretty_print_seat(json_object *i) {
 	printf(fmt, json_object_get_string(name),
 		json_object_get_int(capabilities));
 
+	json_object *cursor_position;
+	if (json_object_object_get_ex(i, "cursor_position", &cursor_position)) {
+		json_object *x, *y;
+		if (cursor_position &&
+				json_object_is_type(cursor_position, json_type_object) &&
+				json_object_object_get_ex(cursor_position, "x", &x) && x &&
+				json_object_object_get_ex(cursor_position, "y", &y) && y) {
+			printf("  Cursor position: X: %.15g, Y: %.15g\n",
+				json_object_get_double(x), json_object_get_double(y));
+		} else {
+			printf("  Cursor position: unavailable\n");
+		}
+	}
+
 	size_t devices_len = json_object_array_length(devices);
 	if (devices_len > 0) {
 		printf("  Devices:\n");

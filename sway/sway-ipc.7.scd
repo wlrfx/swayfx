@@ -1393,6 +1393,12 @@ one seat. Each object has the following properties:
 :  array
 :  An array of input devices that are attached to the seat. Currently, this
    is an array of objects that are identical to those returned by _GET\_INPUTS_
+|- cursor_position
+:  object or null
+:  The cursor position for this seat, independently of other seats. The object
+   contains _x_ and _y_ floating-point numbers in global logical coordinates,
+   not physical output pixels. Coordinates may be fractional or negative.
+   This is null when the seat's cursor state is unavailable.
 
 
 *Example Reply:*
@@ -1402,6 +1408,10 @@ one seat. Each object has the following properties:
 		"name": "seat0",
 		"capabilities": 3,
 		"focus": 7,
+		"cursor_position": {
+			"x": 842.5,
+			"y": 536.0
+		},
 		"devices": [
 			{
 				"identifier": "1:1:AT_Translated_Set_2_keyboard",
