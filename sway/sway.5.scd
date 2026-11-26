@@ -179,6 +179,40 @@ set|plus|minus|toggle <amount>
 	This can also be used with criteria to set an idle inhibitor for any
 	existing window or with _for_window_ to set idle inhibitors for future windows.
 
+*label* enable|disable|toggle
+	Show or hide a compact floating title label that overlaps the window's
+	content instead of reserving a full-width titlebar strip. Only applies
+	to leaf view containers; a labeled window inside a tabbed or stacked
+	parent is still shown as a normal tab strip entry. Default is disabled.
+	Only usable via *for_window* or *criteria*, not directly on the current
+	focused window.
+
+*label* position top|bottom left|center|right
+	Sets which edge of the window the label sits on and its alignment
+	along that edge. Default is _top_ _center_.
+
+*label* max_width <n>|<n>%
+	Caps the label's width, either as an absolute pixel value or as a
+	percentage of the window's own width. The label is never wider than
+	this value or the measured title text, whichever is smaller, and is
+	never wider than the window itself. Default is 50%.
+
+*label* corner_radius <n>|match
+	Sets the label's own corner radius (0-99, all four corners), or
+	_match_ to track the window's *corner_radius* live. Default is _match_.
+
+*label* autohide off|<ms>
+	If set to a positive number of milliseconds, the label is shown when
+	the window gains focus and fades out that many milliseconds later,
+	whether or not the window is still focused; losing focus always
+	restores full visibility immediately. _off_ (the default) keeps the
+	label always visible.
+
+*label* avoid_cursor on|off
+	If _on_, the label slides out of the way when the pointer hovers over
+	it, and back once the pointer moves away; hovering also cancels a
+	pending *autohide* fade. Default is _off_.
+
 *layout* default|splith|splitv|stacking|tabbed
 	Sets the layout mode of the focused container.
 

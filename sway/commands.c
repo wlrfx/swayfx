@@ -144,6 +144,7 @@ static const struct cmd_handler command_handlers[] = {
 	{ "fullscreen", cmd_fullscreen },
 	{ "inhibit_idle", cmd_inhibit_idle },
 	{ "kill", cmd_kill },
+	{ "label", cmd_label },
 	{ "layout", cmd_layout },
 	{ "mark", cmd_mark },
 	{ "max_render_time", cmd_max_render_time },
