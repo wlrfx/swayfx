@@ -352,6 +352,7 @@ static void config_defaults(struct sway_config *config) {
 
 	// SwayFX defaults
 	config->animation_duration_ms = 0.0f;
+	config->animation_easing = EASING_CUBIC;
 
 	config->corner_radius = 0;
 	config->smart_corner_radius = false;

@@ -246,10 +246,10 @@ void container_update(struct sway_container *con) {
 		con->animation_state.to_alpha, &con->animation_state.animation))) * con->alpha;
 
 	if (con->current.workspace) {
-		alpha *= get_animated_value(
+		alpha *= MIN(1, MAX(0, get_animated_value(
 			con->current.workspace->animation_state.from_alpha,
 			con->current.workspace->animation_state.to_alpha,
-			&con->current.workspace->animation_state.animation);
+			&con->current.workspace->animation_state.animation)));
 	}
 
 	if (con->current.parent) {

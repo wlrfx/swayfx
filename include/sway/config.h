@@ -489,8 +489,16 @@ enum xwayland_mode {
 /**
  * The configuration struct. The result of loading a config file.
  */
+enum animation_easing {
+	EASING_LINEAR,
+	EASING_QUAD,
+	EASING_CUBIC,
+	EASING_BACK,
+};
+
 struct sway_config {
 	float animation_duration_ms;
+	enum animation_easing animation_easing;
 	int corner_radius;
 	bool smart_corner_radius;
 
