@@ -302,6 +302,10 @@ void output_configure_scene(struct sway_output *output, struct wlr_scene_node *n
 			buffer->filter_mode = get_scale_filter(output, buffer);
 		}
 
+		// scenefx asserts opacity is within [0, 1], but float rounding in
+		// ease_out_cubic()/lerp() can overshoot by a few ulp mid-animation.
+		opacity = MAX(0.0f, MIN(1.0f, opacity));
+
 		wlr_scene_buffer_set_opacity(buffer, opacity);
 
 		if (wlr_layer_surface) {
