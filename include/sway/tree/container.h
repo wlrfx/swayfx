@@ -173,6 +173,10 @@ struct sway_container {
 
 		bool seat_is_resizing;
 		bool seat_is_moving_float;
+
+		// arrange_root() pass that last arranged this container; one older
+		// than the previous pass means the geometry above is stale
+		uint32_t arranged_pass;
 	} animation_state;
 
 	list_t *marks; // char *
