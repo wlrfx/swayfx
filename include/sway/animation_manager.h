@@ -2,6 +2,7 @@
 #define _SWAY_ANIMATION_MANAGER_H
 
 #include <stdbool.h>
+#include <time.h>
 #include <wayland-util.h>
 
 struct sway_container;
@@ -10,6 +11,7 @@ struct sway_server;
 // TODO: make animation just a pointer to progress, make multiplier and callback private
 struct animation {
 	struct wl_list link;
+	struct timespec start_time;
 	float progress;
 	void *data;
 	float multiplier;
